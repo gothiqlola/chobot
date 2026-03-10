@@ -30,7 +30,7 @@ COLOR_DISMISS = 0x95A5A6       # Grey (for dismissed/false positives)
 COLOR_ALERT = 0xED4245         # Discord red (for unknown traveler alerts)
 
 # --- DATABASE SETUP ---
-DB_NAME = "warnings.db"
+DB_NAME = "chobot.db"
 WARN_EXPIRY_DAYS = 3
 MAX_HISTORY_ENTRIES = 10  # Max entries shown per section in !flighthistory
 

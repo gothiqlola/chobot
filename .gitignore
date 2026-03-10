@@ -6,3 +6,4 @@ __pycache__/
 *.pyc
 warnings.db
 .idea
+cache_dump.json

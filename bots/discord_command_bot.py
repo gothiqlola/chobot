@@ -1195,6 +1195,9 @@ class DiscordCommandBot(commands.Bot):
             discord.Activity(type=discord.ActivityType.listening, name="Meditations by Marcus Aurelius (K.K. Version) 📖"),
             discord.Activity(type=discord.ActivityType.listening, name="the silence of an empty queue 🤫"),
             discord.Activity(type=discord.ActivityType.listening, name="complaints, unbothered 🗿"),
+            discord.Activity(type=discord.ActivityType.listening, name="who am i?"),
+            discord.Activity(type=discord.ActivityType.listening, name="try asking me question."),
+            discord.Activity(type=discord.ActivityType.listening, name="have you seen Game of Thrones?"),
         ])
 
     async def setup_hook(self):
@@ -1248,7 +1251,7 @@ class DiscordCommandBot(commands.Bot):
         """Called when bot is ready"""
         logger.info(f"[DISCORD] Logged in as: {self.user} (ID: {self.user.id})")
 
-    @tasks.loop(minutes=1)
+    @tasks.loop(minutes=5)
     async def change_status_loop(self):
         """Cycle through status messages"""
         new_activity = next(self.status_list)
@@ -1312,7 +1315,7 @@ class DiscordCommandBot(commands.Bot):
                 conv_key = _discord_conv_key(message)
                 async with message.channel.typing():
                     answer = await get_ai_answer(question, gemini_api_key=Config.GEMINI_API_KEY, conversation_key=conv_key)
-                await message.reply(f"🤖 **Chopaeng AI:** {answer}")
+                await message.reply(f"🤖: {answer}")
                 logger.info(f"[DISCORD] Mention-ask by {message.author.name}: {question[:80]}")
                 return
 

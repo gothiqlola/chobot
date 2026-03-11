@@ -52,7 +52,6 @@
           <th>Category</th>
           <th>Status</th>
           <th class="text-center">Visitors</th>
-          <th>Dodo Code</th>
           <th></th>
         </tr>
       </thead>
@@ -91,18 +90,6 @@
           <!-- Visitors -->
           <td class="text-center" style="color:#888;font-weight:700;font-size:.85rem;">
             {{ isl.visitors if isl.visitors else "—" }}
-          </td>
-          <!-- Dodo code -->
-          <td>
-            {% if isl.dodo_code or isl.fs_dodo %}
-              <span class="font-monospace fw-bold"
-                    style="background:#f6f8f3;border:1px solid #e1e6d3;border-radius:6px;
-                           padding:2px 8px;font-size:.82rem;color:#555;letter-spacing:.05em;">
-                {{ isl.dodo_code or isl.fs_dodo }}
-              </span>
-            {% else %}
-              <span style="color:#ddd;font-size:.8rem;">—</span>
-            {% endif %}
           </td>
           <!-- Edit -->
           <td class="text-end">

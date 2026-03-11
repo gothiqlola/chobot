@@ -6,13 +6,14 @@ Handles Discord commands for item and villager search with rich embeds
 import asyncio
 import importlib
 import os
+import sqlite3
 import subprocess
 import sys
 import time
 import re
 import random
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import cycle
 
 import discord
@@ -41,6 +42,32 @@ VISITOR_LINE_PATTERN = re.compile(r'#\d+:\s*(.+)')
 AVAILABLE_SLOT_TEXT = "available slot"
 ISLAND_BOT_INTERCEPT_TIMEOUT = 10  # seconds to wait for island bot response
 GIT_OUTPUT_MAX_LENGTH = 1900  # max chars of git output to display in Discord
+
+# Shared SQLite database path (project root)
+_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "chobot.db")
+
+
+def _upsert_bot_status(island_id: str, island_name: str, is_online: bool) -> None:
+    """Persist the Discord bot online/offline status for an island to the DB.
+
+    Writes to the ``island_bot_status`` table so that the REST API can expose
+    live Discord presence data without making Discord API calls itself.
+    """
+    try:
+        conn = sqlite3.connect(_DB_PATH)
+        conn.execute(
+            """INSERT INTO island_bot_status (island_id, island_name, is_online, updated_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(island_id) DO UPDATE SET
+                   island_name=excluded.island_name,
+                   is_online=excluded.is_online,
+                   updated_at=excluded.updated_at""",
+            (island_id, island_name, 1 if is_online else 0, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+        conn.close()
+    except Exception as exc:
+        logger.error(f"[DISCORD] Failed to write island_bot_status for {island_name}: {exc}")
 
 
 def _discord_conv_key(message: discord.Message) -> str:
@@ -1210,6 +1237,9 @@ class DiscordCommandCog(commands.Cog):
                 logger.error(f"[DISCORD] island_monitor_loop error checking {island}: {e}")
                 continue
 
+            # Persist current status to the database so the REST API can expose it
+            _upsert_bot_status(island.lower(), island, is_online)
+
             previous = self.island_down_states.get(island_clean)  # None = first run
 
             if previous is None:
@@ -1254,11 +1284,22 @@ class DiscordCommandCog(commands.Cog):
                 except Exception as e:
                     logger.error(f"[DISCORD] Failed to send island-back-up embed for {island}: {e}")
 
+        # --- Free island status ---
+        if self.free_island_lookup:
+            for island in Config.FREE_ISLANDS:
+                try:
+                    is_online = await self._check_island_online(guild, island, lookup=self.free_island_lookup)
+                except Exception as e:
+                    logger.error(f"[DISCORD] island_monitor_loop error checking free island {island}: {e}")
+                    continue
+                _upsert_bot_status(island.lower(), island, is_online)
+
     @island_monitor_loop.before_loop
     async def before_island_monitor_loop(self):
         """Wait until bot is ready before starting the island monitor."""
         await self.bot.wait_until_ready()
         await self.fetch_islands()
+        await self.fetch_free_islands()
 
     @commands.hybrid_command(name="refresh")
     @commands.has_permissions(administrator=True)

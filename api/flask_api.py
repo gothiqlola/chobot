@@ -195,7 +195,7 @@ def process_island(entry, island_type):
     }
 
 
-def _build_island_response(entry, island_type, db_island):
+def _build_island_response(entry, island_type, db_island, discord_bot_online=None):
     """Build the enriched island response merging live filesystem data with DB metadata."""
     name = entry.name.upper()
 
@@ -222,19 +222,20 @@ def _build_island_response(entry, island_type, db_island):
         dodo_code = raw_dodo
 
     return {
-        "id":          db_island.get("id", name.lower()),
-        "name":        name,
-        "cat":         db_island.get("cat", "public"),
-        "description": db_island.get("description", ""),
-        "dodo_code":   dodo_code,
-        "visitors":    visitors,
-        "items":       db_island.get("items", []),
-        "map_url":     db_island.get("map_url"),
-        "seasonal":    db_island.get("seasonal", ""),
-        "status":      status,
-        "theme":       db_island.get("theme", "teal"),
-        "type":        db_island.get("type", ""),
-        "updated_at":  db_island.get("updated_at"),
+        "id":                db_island.get("id", name.lower()),
+        "name":              name,
+        "cat":               db_island.get("cat", "public"),
+        "description":       db_island.get("description", ""),
+        "dodo_code":         dodo_code,
+        "visitors":          visitors,
+        "items":             db_island.get("items", []),
+        "map_url":           db_island.get("map_url"),
+        "seasonal":          db_island.get("seasonal", ""),
+        "status":            status,
+        "theme":             db_island.get("theme", "teal"),
+        "type":              db_island.get("type", ""),
+        "updated_at":        db_island.get("updated_at"),
+        "discord_bot_online": discord_bot_online,
     }
 
 # ============================================================================
@@ -483,6 +484,7 @@ def get_islands():
     """Get all island statuses and Dodo codes with full metadata."""
     # Load island metadata from DB, keyed by uppercase name
     db_map = {}
+    discord_status = {}
     db = get_db()
     try:
         rows = db.execute(
@@ -493,6 +495,10 @@ def get_islands():
             isl = row_to_island_dict(dict(row))
             if isl.get("name"):
                 db_map[isl["name"].upper()] = isl
+        # Load Discord bot presence data
+        bot_rows = db.execute("SELECT island_id, is_online FROM island_bot_status").fetchall()
+        for r in bot_rows:
+            discord_status[r["island_id"]] = bool(r["is_online"])
     except sqlite3.Error:
         logger.exception("Failed to load island metadata from DB for /api/islands")
     finally:
@@ -505,14 +511,20 @@ def get_islands():
             for entry in entries:
                 if entry.is_dir():
                     name = entry.name.upper()
-                    results.append(_build_island_response(entry, "Free", db_map.get(name, {})))
+                    results.append(_build_island_response(
+                        entry, "Free", db_map.get(name, {}),
+                        discord_status.get(name.lower()),
+                    ))
 
     if os.path.exists(Config.DIR_VIP):
         with os.scandir(Config.DIR_VIP) as entries:
             for entry in entries:
                 if entry.is_dir():
                     name = entry.name.upper()
-                    results.append(_build_island_response(entry, "VIP", db_map.get(name, {})))
+                    results.append(_build_island_response(
+                        entry, "VIP", db_map.get(name, {}),
+                        discord_status.get(name.lower()),
+                    ))
 
     results.sort(key=lambda x: x['name'])
     return jsonify({

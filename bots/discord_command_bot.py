@@ -55,17 +55,19 @@ def _upsert_bot_status(island_id: str, island_name: str, is_online: bool) -> Non
     """
     try:
         conn = sqlite3.connect(_DB_PATH)
-        conn.execute(
-            """INSERT INTO island_bot_status (island_id, island_name, is_online, updated_at)
-               VALUES (?, ?, ?, ?)
-               ON CONFLICT(island_id) DO UPDATE SET
-                   island_name=excluded.island_name,
-                   is_online=excluded.is_online,
-                   updated_at=excluded.updated_at""",
-            (island_id, island_name, 1 if is_online else 0, datetime.now(timezone.utc).isoformat()),
-        )
-        conn.commit()
-        conn.close()
+        try:
+            conn.execute(
+                """INSERT INTO island_bot_status (island_id, island_name, is_online, updated_at)
+                   VALUES (?, ?, ?, ?)
+                   ON CONFLICT(island_id) DO UPDATE SET
+                       island_name=excluded.island_name,
+                       is_online=excluded.is_online,
+                       updated_at=excluded.updated_at""",
+                (island_id, island_name, 1 if is_online else 0, datetime.now(timezone.utc).isoformat()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
     except Exception as exc:
         logger.error(f"[DISCORD] Failed to write island_bot_status for {island_name}: {exc}")
 

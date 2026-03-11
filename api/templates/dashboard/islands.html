@@ -87,7 +87,7 @@
             </span>
           </td>
           <!-- Status -->
-          <td><span class="status-pill {{ status_cls }}">{{ isl.status }}</span></td>
+          <td><span class="status-pill {{ status_cls }}" style="position:static;display:inline-block;">{{ isl.status }}</span></td>
           <!-- Visitors -->
           <td class="text-center" style="color:#888;font-weight:700;font-size:.85rem;">
             {{ isl.visitors if isl.visitors else "—" }}

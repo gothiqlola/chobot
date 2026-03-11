@@ -145,6 +145,7 @@ class DiscordCommandCog(commands.Cog):
         self.data_manager = data_manager
         self.cooldowns = {}
         self.sub_island_lookup = {}
+        self.free_island_lookup = {}
 
         self.auto_refresh_cache.start()
         # island_clean -> True (down) / False (up); None = not yet initialized
@@ -222,6 +223,46 @@ class DiscordCommandCog(commands.Cog):
             Config.TWITCH_SUB_ISLANDS = fetched_islands
 
         logger.info(f"[DISCORD] Dynamic Island Fetch Complete. Found {count} islands.")
+
+    async def fetch_free_islands(self):
+        """Fetch free island channels from the free-island Discord category."""
+        guild = self.bot.get_guild(Config.GUILD_ID)
+        if not guild:
+            logger.error(f"[DISCORD] Guild {Config.GUILD_ID} not found.")
+            return
+
+        if not Config.FREE_CATEGORY_ID:
+            logger.warning("[DISCORD] FREE_CATEGORY_ID not configured; free island lookup unavailable.")
+            return
+
+        category = discord.utils.get(guild.categories, id=Config.FREE_CATEGORY_ID)
+        if not category:
+            logger.error(f"[DISCORD] Free island category {Config.FREE_CATEGORY_ID} not found.")
+            return
+
+        temp_lookup = {}
+        fetched_islands = []
+        count = 0
+
+        for channel in category.channels:
+            chan_clean = clean_text(channel.name)
+            if not chan_clean:
+                continue
+
+            # Strip leading digits to get the canonical island name.
+            # Some free island channels use a numeric prefix (e.g. "01-kakanggata" → "kakanggata").
+            island_clean = re.sub(r'^\d+', '', chan_clean)
+            if island_clean:
+                temp_lookup[island_clean] = channel.id
+                fetched_islands.append(island_clean.title())
+                count += 1
+
+        self.free_island_lookup = temp_lookup
+
+        if fetched_islands:
+            Config.FREE_ISLANDS = fetched_islands
+
+        logger.info(f"[DISCORD] Dynamic Free Island Fetch Complete. Found {count} islands.")
 
     def cog_unload(self):
         """Cleanup on unload"""
@@ -816,6 +857,123 @@ class DiscordCommandCog(commands.Cog):
         await ctx.reply(embed=embed)
         logger.info(f"[DISCORD] Island status check: {online_count}/{total} online")
 
+    @commands.hybrid_command(name="freeislands", aliases=["freeislandstatus", "checkfreeislands"])
+    async def free_island_status(self, ctx):
+        """Check the status of all free islands"""
+        await ctx.defer()
+
+        guild = self.bot.get_guild(Config.GUILD_ID)
+        if not guild:
+            await ctx.reply("Guild not found.")
+            return
+
+        # Ensure the free island channel lookup is fresh before checking
+        await self.fetch_free_islands()
+
+        if not Config.FREE_CATEGORY_ID:
+            await ctx.reply("Free island category is not configured.")
+            return
+
+        results = []
+        online_count = 0
+
+        # Resolve the shared island-bot role once
+        island_bot_role = guild.get_role(Config.ISLAND_BOT_ROLE_ID) if Config.ISLAND_BOT_ROLE_ID else None
+        if Config.ISLAND_BOT_ROLE_ID and not island_bot_role:
+            logger.warning(f"[DISCORD] ISLAND_BOT_ROLE_ID {Config.ISLAND_BOT_ROLE_ID} not found in guild; bot name matching disabled")
+
+        for island in Config.FREE_ISLANDS:
+            island_clean = clean_text(island)
+            channel_id = self.free_island_lookup.get(island_clean)
+
+            # Fallback: scan all guild text channels if not found via category lookup
+            if not channel_id:
+                for ch in guild.channels:
+                    if isinstance(ch, discord.TextChannel) and island_clean in clean_text(ch.name):
+                        channel_id = ch.id
+                        break
+
+            if not channel_id:
+                results.append((island, "❓", "Channel not found", None))
+                continue
+
+            channel = guild.get_channel(channel_id)
+            if not channel:
+                results.append((island, "❓", "Channel not found", None))
+                continue
+
+            # Find the bot for this island by name: "Chobot <island name>"
+            island_bot = None
+            if island_bot_role:
+                island_clean_target = clean_text(f"chobot {island}")
+                for member in island_bot_role.members:
+                    if member.bot and clean_text(member.display_name) == island_clean_target:
+                        island_bot = member
+                        break
+
+            # Check 1: If the island's bot is found and online or idle, it's working
+            if island_bot and island_bot.status in (discord.Status.online, discord.Status.idle):
+                results.append((island, "✅", "Bot online", channel_id))
+                online_count += 1
+                continue
+
+            # Check 2: Scan recent channel messages for dodo codes or Chopaeng visitor
+            try:
+                messages = [msg async for msg in channel.history(limit=25)]
+            except discord.Forbidden:
+                results.append((island, "❓", "No channel access", channel_id))
+                continue
+
+            island_up = False
+            status_reason = ""
+
+            for msg in messages:
+                if island_bot:
+                    if msg.author.id != island_bot.id:
+                        continue
+                elif not msg.author.bot:
+                    continue
+
+                if DODO_CODE_PATTERN.search(msg.content):
+                    island_up = True
+                    status_reason = "Dodo code active"
+                    break
+
+                if ISLAND_HOST_NAME in msg.content.lower():
+                    island_up = True
+                    status_reason = "Chopaeng is visiting"
+                    break
+
+            if island_up:
+                results.append((island, "✅", status_reason, channel_id))
+                online_count += 1
+            else:
+                results.append((island, "❌", "No recent activity", channel_id))
+
+        # Build embed
+        total = len(Config.FREE_ISLANDS)
+        embed = discord.Embed(
+            title="🌴 Free Island Status",
+            description=f"**{online_count}/{total}** islands active",
+            color=discord.Color.green() if online_count == total else (
+                discord.Color.orange() if online_count > 0 else discord.Color.red()
+            ),
+            timestamp=discord.utils.utcnow()
+        )
+
+        online_lines = [f"<#{ch_id}>" if ch_id else f"**{name}**" for name, status, _, ch_id in results if status == "✅"]
+        offline_lines = [f"<#{ch_id}>" if ch_id else f"**{name}**" for name, status, _, ch_id in results if status != "✅"]
+
+        embed.add_field(name="🟢 ONLINE", value="\n".join(online_lines) or "*none*", inline=True)
+        embed.add_field(name="🔴 OFFLINE", value="\n".join(offline_lines) or "*none*", inline=True)
+
+        pfp_url = ctx.author.avatar.url if ctx.author.avatar else Config.DEFAULT_PFP
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=pfp_url)
+        embed.set_image(url=Config.FOOTER_LINE)
+
+        await ctx.reply(embed=embed)
+        logger.info(f"[DISCORD] Free island status check: {online_count}/{total} online")
+
     async def _check_sub_island_status(self, ctx) -> bool:
         """Check if the sub island bot is online. Replies with a down embed and returns False if not."""
         if not self._is_sub_island_channel(ctx.channel):
@@ -1005,10 +1163,17 @@ class DiscordCommandCog(commands.Cog):
         embed.set_image(url=Config.FOOTER_LINE)
         return embed
 
-    async def _check_island_online(self, guild: discord.Guild, island: str) -> bool:
-        """Return True if the island appears to be online, False otherwise."""
+    async def _check_island_online(self, guild: discord.Guild, island: str, lookup: dict | None = None) -> bool:
+        """Return True if the island appears to be online, False otherwise.
+
+        ``lookup`` should be the channel-name → channel-id mapping for the island
+        type being checked (sub or free).  Keys must be normalised with
+        ``clean_text()`` — the same normalisation applied when the lookup was
+        built.  Defaults to ``self.sub_island_lookup``.
+        """
         island_clean = clean_text(island)
-        channel_id = self.sub_island_lookup.get(island_clean)
+        effective_lookup = lookup if lookup is not None else self.sub_island_lookup
+        channel_id = effective_lookup.get(island_clean)
         if not channel_id:
             return False
 
@@ -1131,6 +1296,7 @@ class DiscordCommandCog(commands.Cog):
         loop = asyncio.get_event_loop()
         await loop.run_in_executor(None, self.data_manager.update_cache)
         await self.fetch_islands()
+        await self.fetch_free_islands()
         count = len(getattr(self, 'island_map', {})) 
         await ctx.reply(f"Done. Linked {count} islands.")
 

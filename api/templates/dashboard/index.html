@@ -37,7 +37,9 @@
 <div class="section-card mb-4">
   <div class="section-card-header">
     <span><i class="bi bi-geo-alt-fill me-2 text-nook-green"></i>Island Status Breakdown</span>
-    <span class="x-small fw-bold" style="color:#aaa;">{{ island_count }} islands total</span>
+    <a href="{{ url_for('dashboard.island_status') }}"
+       class="text-decoration-none fw-bold x-small"
+       style="color:var(--nook-green);">View all →</a>
   </div>
   <div class="p-4">
     <!-- Status count strip -->

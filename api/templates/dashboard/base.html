@@ -52,6 +52,12 @@
         <span class="link-text">Islands</span>
       </a>
       {% endif %}
+      <a href="{{ url_for('dashboard.island_status') }}"
+         class="nav-pill-link {% if request.endpoint == 'dashboard.island_status' %}active{% endif %}"
+         title="Island Status">
+        <i class="bi bi-reception-4"></i>
+        <span class="link-text">Island Status</span>
+      </a>
       <a href="{{ url_for('dashboard.logs') }}"
          class="nav-pill-link {% if request.endpoint == 'dashboard.logs' %}active{% endif %}"
          title="XLog Reports">

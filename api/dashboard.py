@@ -940,6 +940,43 @@ def logs():
     )
 
 
+@dashboard.route("/status")
+@login_required
+def island_status():
+    """Dedicated Island Status Breakdown page."""
+    db = get_db()
+    try:
+        rows = db.execute("SELECT * FROM islands ORDER BY name").fetchall()
+        db_islands = [_row_to_island_dict(dict(r)) for r in rows]
+        status_rows = db.execute(
+            "SELECT status, COUNT(*) AS cnt FROM islands GROUP BY status"
+        ).fetchall()
+    except sqlite3.Error:
+        db_islands = []
+        status_rows = []
+    finally:
+        db.close()
+
+    status_map = {r["status"]: r["cnt"] for r in status_rows}
+    island_count = sum(status_map.values())
+    online_count = status_map.get("ONLINE", 0)
+    online_pct = int(online_count * 100 / island_count) if island_count else 0
+
+    # Group islands by status for the per-section tables
+    grouped = {"ONLINE": [], "SUB ONLY": [], "REFRESHING": [], "OFFLINE": []}
+    for isl in db_islands:
+        bucket = isl.get("status", "OFFLINE")
+        grouped.setdefault(bucket, []).append(isl)
+
+    return render_template(
+        "dashboard/status.html",
+        island_count=island_count,
+        status_map=status_map,
+        online_pct=online_pct,
+        grouped=grouped,
+    )
+
+
 @dashboard.route("/analytics")
 @login_required
 def analytics():

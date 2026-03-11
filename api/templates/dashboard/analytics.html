@@ -1,0 +1,230 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Analytics — ChoBot Dashboard{% endblock %}
+{% block header %}Analytics{% endblock %}
+
+{% block head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
+          integrity="sha384-OLBgp1GsljhM2TJ+sbHjaiH9txEUvgdDTAzHv2P24donTt6/529l+9Ua0vFImLlb"
+          crossorigin="anonymous"></script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Auth ratio + visit trend row -->
+<div class="row g-4 mb-4">
+
+  <!-- Auth ratio doughnut -->
+  <div class="col-12 col-lg-5">
+    <div class="section-card h-100">
+      <div class="section-card-header">
+        <span><i class="bi bi-pie-chart-fill me-2" style="color:var(--nook-green);"></i>Traveler Authorization</span>
+      </div>
+      <div class="p-4 d-flex align-items-center gap-4">
+        <div class="chart-wrap flex-shrink-0" style="width:140px;height:140px;">
+          <canvas id="authChart"></canvas>
+        </div>
+        <div>
+          <div class="d-flex align-items-center gap-2 mb-2">
+            <span class="status-dot" style="background:#28a745;"></span>
+            <span class="fw-bold" style="color:#888;font-size:.88rem;">Authorized</span>
+            <span class="ms-auto fw-black ac-font" style="color:var(--nook-green);font-size:1.3rem;">
+              {{ auth_stats.authorized }}
+            </span>
+          </div>
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <span class="status-dot" style="background:#e06c75;"></span>
+            <span class="fw-bold" style="color:#888;font-size:.88rem;">Unknown</span>
+            <span class="ms-auto fw-black ac-font" style="color:#e06c75;font-size:1.3rem;">
+              {{ auth_stats.unauthorized }}
+            </span>
+          </div>
+          <div class="divider-dashed mt-0 mb-2"></div>
+          <div class="d-flex align-items-center justify-content-between">
+            <span class="x-small fw-bold" style="color:#ccc;">Total</span>
+            <span class="fw-black ac-font" style="color:#444;font-size:1.2rem;">
+              {{ auth_stats.authorized + auth_stats.unauthorized }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visits per day -->
+  <div class="col-12 col-lg-7">
+    <div class="section-card h-100">
+      <div class="section-card-header">
+        <span><i class="bi bi-graph-up-arrow me-2" style="color:var(--dal-blue);"></i>Visits — Last 7 Days</span>
+      </div>
+      <div class="p-4">
+        <div class="chart-wrap" style="height:140px;">
+          <canvas id="visitChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Top islands + Top travelers row -->
+<div class="row g-4 mb-4">
+
+  <!-- Top islands -->
+  <div class="col-12 col-lg-6">
+    <div class="section-card h-100">
+      <div class="section-card-header">
+        <span>🏝️ Most Visited Islands</span>
+      </div>
+      {% if top_islands %}
+      <div>
+        {% for row in top_islands %}
+        <div class="d-flex align-items-center gap-3 px-4 py-3"
+             style="border-bottom:1px solid #f0f4ec;">
+          <span class="x-small fw-bold" style="color:#ccc;width:18px;text-align:right;">{{ loop.index }}</span>
+          <span class="flex-grow-1 fw-bold" style="color:#444;font-size:.9rem;">{{ row.destination }}</span>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <div style="height:6px;border-radius:3px;background:var(--nook-green);
+                        width:{{ [(row.visit_count / top_islands[0].visit_count * 80)|int, 4]|max }}px;
+                        max-width:80px;"></div>
+            <span class="fw-black x-small" style="color:var(--nook-green);width:24px;text-align:right;">
+              {{ row.visit_count }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="py-5 text-center" style="color:#ccc;font-weight:700;font-size:.9rem;">No visit data yet.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top travelers -->
+  <div class="col-12 col-lg-6">
+    <div class="section-card h-100">
+      <div class="section-card-header">
+        <span>✈️ Most Active Travelers</span>
+      </div>
+      {% if top_travelers %}
+      <div>
+        {% for row in top_travelers %}
+        <div class="d-flex align-items-center gap-3 px-4 py-3"
+             style="border-bottom:1px solid #f0f4ec;">
+          <span class="x-small fw-bold" style="color:#ccc;width:18px;text-align:right;">{{ loop.index }}</span>
+          <span class="flex-grow-1 fw-bold" style="color:#444;font-size:.9rem;">{{ row.ign }}</span>
+          <div class="d-flex align-items-center gap-2 flex-shrink-0">
+            <div style="height:6px;border-radius:3px;background:#b07cdc;
+                        width:{{ [(row.visit_count / top_travelers[0].visit_count * 80)|int, 4]|max }}px;
+                        max-width:80px;"></div>
+            <span class="fw-black x-small" style="color:#b07cdc;width:24px;text-align:right;">
+              {{ row.visit_count }}
+            </span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="py-5 text-center" style="color:#ccc;font-weight:700;font-size:.9rem;">No traveler data yet.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Island visit bar chart -->
+{% if top_islands %}
+<div class="section-card">
+  <div class="section-card-header">
+    <span><i class="bi bi-bar-chart-fill me-2" style="color:var(--dal-blue);"></i>Island Visit Breakdown</span>
+  </div>
+  <div class="p-4">
+    <div class="chart-wrap" style="height:220px;">
+      <canvas id="islandBarChart"></canvas>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% block scripts %}
+<script>
+  // Auth doughnut
+  new Chart(document.getElementById('authChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Authorized', 'Unknown'],
+      datasets: [{
+        data: [{{ auth_stats.authorized }}, {{ auth_stats.unauthorized }}],
+        backgroundColor: ['#28a745', '#e06c75'],
+        borderWidth: 0,
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      cutout: '70%',
+      plugins: { legend: { display: false } },
+      responsive: true,
+      maintainAspectRatio: true,
+    }
+  });
+
+  // Visits per day line
+  const visitDays = [{% for r in visits_by_day %}"{{ r.day }}"{% if not loop.last %},{% endif %}{% endfor %}];
+  const visitCounts = [{% for r in visits_by_day %}{{ r.count }}{% if not loop.last %},{% endif %}{% endfor %}];
+  new Chart(document.getElementById('visitChart'), {
+    type: 'line',
+    data: {
+      labels: visitDays,
+      datasets: [{
+        label: 'Visits',
+        data: visitCounts,
+        borderColor: '#28a745',
+        backgroundColor: 'rgba(40,167,69,0.12)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#28a745',
+        borderWidth: 2.5,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#aaa', font: { size: 11, family: 'Quicksand', weight: '700' } },
+             grid: { color: '#f0f4ec' } },
+        y: { ticks: { color: '#aaa', font: { size: 11, family: 'Quicksand', weight: '700' } },
+             grid: { color: '#f0f4ec' }, beginAtZero: true }
+      }
+    }
+  });
+
+  {% if top_islands %}
+  // Island bar chart
+  new Chart(document.getElementById('islandBarChart'), {
+    type: 'bar',
+    data: {
+      labels: [{% for r in top_islands %}"{{ r.destination }}"{% if not loop.last %},{% endif %}{% endfor %}],
+      datasets: [{
+        label: 'Visits',
+        data: [{% for r in top_islands %}{{ r.visit_count }}{% if not loop.last %},{% endif %}{% endfor %}],
+        backgroundColor: 'rgba(40,167,69,0.65)',
+        borderRadius: 8,
+        borderSkipped: false,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#aaa', font: { size: 11, family: 'Quicksand', weight: '700' } },
+             grid: { color: '#f0f4ec' } },
+        y: { ticks: { color: '#aaa', font: { size: 11, family: 'Quicksand', weight: '700' } },
+             grid: { color: '#f0f4ec' }, beginAtZero: true }
+      }
+    }
+  });
+  {% endif %}
+</script>
+{% endblock %}
+{% endblock %}

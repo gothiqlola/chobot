@@ -10,6 +10,7 @@ import os
 import re
 import time
 import logging
+import sqlite3
 import threading
 from datetime import datetime, timedelta
 
@@ -20,7 +21,7 @@ from thefuzz import process, fuzz
 
 from utils.config import Config
 from utils.helpers import format_locations_text, parse_locations_json, normalize_text
-from api.dashboard import dashboard, init_dashboard_db, get_db, _row_to_island_dict
+from api.dashboard import dashboard, init_dashboard_db, get_db, row_to_island_dict
 
 
 logger = logging.getLogger("FlaskAPI")
@@ -124,7 +125,7 @@ def get_file_content(folder_path, filename):
 
     for attempt in range(3):
         try:
-            with open(path, 'r', encoding='utf-8') as f:
+            with open(path, 'r', encoding='utf-8-sig') as f:
                 content = f.read().strip()
             with _file_cache_lock:
                 _file_cache[path] = (content, time.monotonic())
@@ -462,10 +463,10 @@ def get_islands():
             "FROM islands ORDER BY name"
         ).fetchall()
         for row in rows:
-            isl = _row_to_island_dict(dict(row))
+            isl = row_to_island_dict(dict(row))
             if isl.get("name"):
                 db_map[isl["name"].upper()] = isl
-    except Exception:
+    except sqlite3.Error:
         logger.exception("Failed to load island metadata from DB for /api/islands")
     finally:
         db.close()

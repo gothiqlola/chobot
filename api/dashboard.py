@@ -261,7 +261,7 @@ def api_auth_required(f):
 # ---------------------------------------------------------------------------
 def _read_file(folder_path, filename):
     try:
-        with open(os.path.join(folder_path, filename), "r", encoding="utf-8") as fh:
+        with open(os.path.join(folder_path, filename), "r", encoding="utf-8-sig") as fh:
             return fh.read().strip()
     except (FileNotFoundError, IOError, UnicodeDecodeError):
         return None
@@ -316,13 +316,17 @@ def _where_clause(conditions: list) -> str:
     return ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
 
-def _row_to_island_dict(row: dict) -> dict:
+def row_to_island_dict(row: dict) -> dict:
     """Decode the items JSON column and return a plain dict."""
     try:
         row["items"] = json.loads(row.get("items") or "[]")
     except (ValueError, TypeError):
         row["items"] = []
     return row
+
+
+# Backward-compatible alias for internal callers
+_row_to_island_dict = row_to_island_dict
 
 
 def _merge_island(db_row: dict, fs: dict | None) -> dict:

@@ -158,10 +158,10 @@
   <div class="bg-gray-900 border border-gray-800 rounded-xl px-6 py-5">
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Island Map</p>
 
+    <!-- Current S3/R2 image — always shown when one exists -->
     {% if island.map_url %}
-    <img src="{{ island.map_url }}" alt="{{ island.name }} map"
+    <img id="mapCurrent" src="{{ island.map_url }}" alt="{{ island.name }} map"
          class="w-full max-h-64 object-cover rounded-lg border border-gray-700 mb-3">
-    <p class="text-xs text-gray-600 break-all mb-3">{{ island.map_url }}</p>
     {% else %}
     <p class="text-xs text-gray-600 mb-3">No map uploaded yet.</p>
     {% endif %}
@@ -181,7 +181,7 @@
         Upload
       </button>
     </form>
-    <!-- Preview of the newly selected file (shown before upload) -->
+    <!-- Local preview of the newly selected file (shown before upload) -->
     <img id="mapPreview" src="" alt="Preview"
          class="hidden mt-3 w-full max-h-64 object-cover rounded-lg border border-sky-700/60">
     <p id="mapStatus" class="text-xs text-gray-600 mt-2"></p>
@@ -254,14 +254,17 @@ document.getElementById('itemsTextarea').addEventListener('keydown', function(e)
 });
 
 /* ---- Map file preview ---- */
-document.getElementById('mapFile').addEventListener('change', function() {
-  const preview = document.getElementById('mapPreview');
-  const file = this.files[0];
-  if (!file) { preview.classList.add('hidden'); preview.src = ''; return; }
-  const reader = new FileReader();
-  reader.onload = e => { preview.src = e.target.result; preview.classList.remove('hidden'); };
-  reader.readAsDataURL(file);
-});
+const _mapFileInput = document.getElementById('mapFile');
+if (_mapFileInput) {
+  _mapFileInput.addEventListener('change', function() {
+    const preview = document.getElementById('mapPreview');
+    const file = this.files[0];
+    if (!file) { preview.classList.add('hidden'); preview.src = ''; return; }
+    const reader = new FileReader();
+    reader.onload = e => { preview.src = e.target.result; preview.classList.remove('hidden'); };
+    reader.readAsDataURL(file);
+  });
+}
 
 /* ---- Map upload ---- */
 async function uploadMap() {
@@ -280,8 +283,27 @@ async function uploadMap() {
     });
     const data = await resp.json();
     if (resp.ok) {
-      status.textContent = 'Uploaded! Refreshing…';
-      setTimeout(() => location.reload(), 1000);
+      status.textContent = 'Uploaded successfully!';
+      // Update the current-map preview in place so the new image is visible immediately
+      const current = document.getElementById('mapCurrent');
+      const preview = document.getElementById('mapPreview');
+      if (current) {
+        current.src = preview.src;
+      } else {
+        // No existing image element yet — inject one
+        const img = document.createElement('img');
+        img.id = 'mapCurrent';
+        img.alt = 'Island map';
+        img.src = preview.src;
+        img.className = 'w-full max-h-64 object-cover rounded-lg border border-gray-700 mb-3';
+        document.getElementById('mapForm').before(img);
+        // Remove the "No map uploaded yet." placeholder if present
+        const placeholder = document.querySelector('#mapForm').parentElement.querySelector('p.text-xs.text-gray-600.mb-3');
+        if (placeholder) placeholder.remove();
+      }
+      preview.classList.add('hidden');
+      preview.src = '';
+      document.getElementById('mapFile').value = '';
     } else {
       status.textContent = 'Error: ' + (data.error || resp.statusText);
     }

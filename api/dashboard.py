@@ -152,6 +152,16 @@ def init_dashboard_db():
             )
         """)
 
+        # Live island bot presence, written by the Discord bot's monitor loop
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS island_bot_status (
+                island_id   TEXT PRIMARY KEY,
+                island_name TEXT NOT NULL,
+                is_online   INTEGER NOT NULL DEFAULT 0,
+                updated_at  TEXT
+            )
+        """)
+
         # Legacy table kept for backward compatibility
         conn.execute("""
             CREATE TABLE IF NOT EXISTS island_metadata (
@@ -379,6 +389,15 @@ def row_to_island_dict(row: dict) -> dict:
     except (ValueError, TypeError):
         row["items"] = []
     return row
+
+
+def _load_bot_status_map(conn) -> dict:
+    """Return a dict of island_id → bool (is_online) from island_bot_status."""
+    try:
+        rows = conn.execute("SELECT island_id, is_online FROM island_bot_status").fetchall()
+        return {r["island_id"]: bool(r["is_online"]) for r in rows}
+    except sqlite3.Error:
+        return {}
 
 
 # Backward-compatible alias for internal callers

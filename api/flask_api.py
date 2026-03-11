@@ -267,18 +267,29 @@ def health():
     with data_manager.lock:
         cache_count = len(data_manager.cache)
         last_update = data_manager.last_update
-    
+
     is_healthy = cache_count > 0 and last_update is not None
-    
+
+    refresh_interval_seconds = int(data_manager.cache_refresh_hours * 3600)
+    if last_update is not None:
+        next_update = (last_update + timedelta(seconds=refresh_interval_seconds)).isoformat()
+    else:
+        next_update = None
+
     response = {
         "status": "healthy" if is_healthy else "degraded",
         "timestamp": datetime.now().isoformat(),
         "cache": {
             "items": cache_count,
-            "last_update": last_update.isoformat() if last_update else None
-        }
+            "last_update": last_update.isoformat() if last_update else None,
+            "refresh_interval_seconds": refresh_interval_seconds,
+            "next_update": next_update,
+        },
+        "islands": {
+            "file_cache_ttl_seconds": _FILE_CACHE_TTL,
+        },
     }
-    
+
     status_code = 200 if is_healthy else 503
     return jsonify(response), status_code
 

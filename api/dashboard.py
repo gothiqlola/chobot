@@ -283,7 +283,7 @@ def _parse_visitor_value(raw):
     if not raw:
         return raw
     cleaned = re.sub(r'(?i)^\s*visitors\s*:\s*', '', raw).strip()
-    return cleaned if cleaned else raw
+    return cleaned if cleaned else None
 
 
 def _collect_fs_islands():

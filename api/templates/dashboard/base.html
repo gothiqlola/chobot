@@ -64,13 +64,6 @@
         <i class="bi bi-bar-chart-fill"></i>
         <span class="link-text">Analytics</span>
       </a>
-      <a href="{{ url_for('dashboard.blocklist') }}"
-         class="nav-pill-link {% if request.endpoint == 'dashboard.blocklist' %}active{% endif %}"
-         title="Blocklist">
-        <i class="bi bi-shield-exclamation"></i>
-        <span class="link-text">Blocklist</span>
-      </a>
-
       <!-- API links (admin only) -->
       {% if current_role == 'admin' %}
       <div class="sidebar-section-label mt-3">API</div>

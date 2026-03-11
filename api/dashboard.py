@@ -394,6 +394,18 @@ def _load_bot_status_map(conn) -> dict:
 # Backward-compatible alias for internal callers
 _row_to_island_dict = row_to_island_dict
 
+# Canonical fields exposed by the public API (in consistent order)
+_API_ISLAND_FIELDS = (
+    "cat", "description", "dodo_code", "id", "items",
+    "map_url", "name", "seasonal", "status", "theme",
+    "type", "updated_at", "visitors",
+)
+
+
+def _island_api_dict(isl: dict) -> dict:
+    """Return a clean API-facing dict containing only canonical island fields."""
+    return {field: isl.get(field) for field in _API_ISLAND_FIELDS}
+
 
 def _merge_island(db_row: dict, fs: dict | None) -> dict:
     """Overlay live filesystem data (Dodo / Visitors) onto a DB island record."""
@@ -1163,7 +1175,7 @@ def analytics():
 @dashboard.route("/api/islands", methods=["GET"])
 @api_auth_required
 def api_islands_list():
-    """List all islands (DB records merged with live filesystem data)."""
+    """List all islands."""
     db = get_db()
     try:
         rows       = db.execute("SELECT * FROM islands ORDER BY name").fetchall()
@@ -1173,24 +1185,7 @@ def api_islands_list():
     finally:
         db.close()
 
-    fs_map  = _collect_fs_islands()
-    result  = []
-    seen    = set()
-    for isl in db_islands:
-        uname = isl["name"].upper()
-        seen.add(uname)
-        result.append(_merge_island(isl, fs_map.get(uname)))
-    for uname, fs in fs_map.items():
-        if uname not in seen:
-            stub = {
-                "id": uname.lower(), "name": uname, "type": "", "items": [],
-                "theme": "teal", "cat": "public", "description": "", "seasonal": "",
-                "status": "OFFLINE", "visitors": 0, "dodo_code": None,
-                "map_url": None, "updated_at": None,
-            }
-            result.append(_merge_island(stub, fs))
-    result.sort(key=lambda x: x["name"])
-    return jsonify(result)
+    return jsonify([_island_api_dict(isl) for isl in db_islands])
 
 
 @dashboard.route("/api/islands", methods=["POST"])
@@ -1252,9 +1247,7 @@ def api_island_get(name):
         db.close()
     if not row:
         return jsonify({"error": f'Island "{name}" not found'}), 404
-    isl    = _row_to_island_dict(dict(row))
-    fs_map = _collect_fs_islands()
-    return jsonify(_merge_island(isl, fs_map.get(isl["name"].upper())))
+    return jsonify(_island_api_dict(_row_to_island_dict(dict(row))))
 
 
 @dashboard.route("/api/islands/<name>", methods=["PUT"])

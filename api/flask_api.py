@@ -21,7 +21,7 @@ from thefuzz import process, fuzz
 
 from utils.config import Config
 from utils.helpers import format_locations_text, parse_locations_json, normalize_text
-from api.dashboard import dashboard, init_dashboard_db, get_db, row_to_island_dict
+from api.dashboard import dashboard, init_dashboard_db, get_db, row_to_island_dict, _parse_visitor_value
 
 
 logger = logging.getLogger("FlaskAPI")
@@ -149,7 +149,7 @@ def process_island(entry, island_type):
     name = entry.name.upper()
 
     raw_dodo = get_file_content(entry.path, "Dodo.txt")
-    raw_visitors = get_file_content(entry.path, "Visitors.txt")
+    raw_visitors = _parse_visitor_value(get_file_content(entry.path, "Visitors.txt"))
 
     status = "ONLINE"
     display_dodo = raw_dodo
@@ -194,7 +194,7 @@ def _build_island_response(entry, island_type, db_island):
     name = entry.name.upper()
 
     raw_dodo = get_file_content(entry.path, "Dodo.txt")
-    raw_visitors = get_file_content(entry.path, "Visitors.txt")
+    raw_visitors = _parse_visitor_value(get_file_content(entry.path, "Visitors.txt"))
 
     # Parse visitors as integer
     visitors = 0

@@ -6,6 +6,7 @@ Access is protected by a secret key (DASHBOARD_SECRET env var).
 
 import json
 import os
+import re
 import sqlite3
 import logging
 import mimetypes
@@ -272,6 +273,19 @@ def _write_file(folder_path, filename, content):
         fh.write(content)
 
 
+def _parse_visitor_value(raw):
+    """Normalize the content of Visitors.txt.
+
+    The C# SysBot may write the file as a plain number ("3") or with a label
+    ("Visitors: 3").  This strips any leading label so callers always receive
+    the bare value ("3", "FULL", etc.).
+    """
+    if not raw:
+        return raw
+    cleaned = re.sub(r'(?i)^\s*visitors\s*:\s*', '', raw).strip()
+    return cleaned if cleaned else raw
+
+
 def _collect_fs_islands():
     """Return a dict keyed by uppercase island name with live filesystem data."""
     result = {}
@@ -288,7 +302,7 @@ def _collect_fs_islands():
                         "fs_path":     entry.path,
                         "fs_type":     itype,
                         "fs_dodo":     _read_file(entry.path, "Dodo.txt"),
-                        "fs_visitors": _read_file(entry.path, "Visitors.txt"),
+                        "fs_visitors": _parse_visitor_value(_read_file(entry.path, "Visitors.txt")),
                     }
 
     _scan(Config.DIR_FREE, "Free")
@@ -476,7 +490,7 @@ def island_detail(name):
         isl_theme        = request.form.get("theme", "teal")
         isl_status       = request.form.get("status", "OFFLINE")
         isl_dodo         = meta["dodo_code"] if meta else (_read_file(fs_path, "Dodo.txt") if fs_path else None)
-        _fs_visitors_raw = _read_file(fs_path, "Visitors.txt") if not meta and fs_path else None
+        _fs_visitors_raw = _parse_visitor_value(_read_file(fs_path, "Visitors.txt")) if not meta and fs_path else None
         isl_visitors_raw = str(meta["visitors"]) if meta else (_fs_visitors_raw or "0")
 
         # items come as a JSON array from the hidden input
@@ -541,7 +555,7 @@ def island_detail(name):
     island["fs_path"]     = fs_path
     island["fs_type"]     = fs_type
     island["fs_dodo"]     = _read_file(fs_path, "Dodo.txt")     if fs_path else None
-    island["fs_visitors"] = _read_file(fs_path, "Visitors.txt") if fs_path else None
+    island["fs_visitors"] = _parse_visitor_value(_read_file(fs_path, "Visitors.txt")) if fs_path else None
     island["items_text"]  = ", ".join(island["items"]) if isinstance(island.get("items"), list) else ""
 
     r2_configured = bool(Config.R2_ACCOUNT_ID and Config.R2_ACCESS_KEY_ID and Config.R2_SECRET_ACCESS_KEY)

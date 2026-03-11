@@ -202,6 +202,16 @@ def _upload_map_to_r2(file_bytes: bytes, content_type: str, island_id: str) -> s
     ext = mimetypes.guess_extension(content_type) or ".png"
     ext = {".jpe": ".jpg", ".jfif": ".jpg"}.get(ext, ext)
     key = f"maps/{island_id}{ext}"
+
+    # Delete any pre-existing map files for this island (different extension)
+    existing = client.list_objects_v2(
+        Bucket=Config.R2_BUCKET_NAME,
+        Prefix=f"maps/{island_id}",
+    )
+    for obj in existing.get("Contents", []):
+        if obj["Key"] != key:
+            client.delete_object(Bucket=Config.R2_BUCKET_NAME, Key=obj["Key"])
+
     client.put_object(
         Bucket=Config.R2_BUCKET_NAME,
         Key=key,

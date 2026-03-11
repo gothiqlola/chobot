@@ -47,7 +47,8 @@ async def init_db():
                 user_id INTEGER,
                 guild_id INTEGER,
                 authorized INTEGER NOT NULL DEFAULT 0,
-                timestamp INTEGER NOT NULL
+                timestamp INTEGER NOT NULL,
+                island_type TEXT NOT NULL DEFAULT 'sub'
             )
         """)
         await db.execute("""
@@ -63,6 +64,11 @@ async def init_db():
         # Migrate existing databases: add visit_id column if it doesn't exist
         try:
             await db.execute("ALTER TABLE warnings ADD COLUMN visit_id INTEGER REFERENCES island_visits(id)")
+        except aiosqlite.OperationalError:
+            pass  # Column already exists
+        # Migrate existing databases: add island_type column if it doesn't exist
+        try:
+            await db.execute("ALTER TABLE island_visits ADD COLUMN island_type TEXT NOT NULL DEFAULT 'sub'")
         except aiosqlite.OperationalError:
             pass  # Column already exists
         await db.commit()
@@ -595,15 +601,18 @@ class TravelerActionView(discord.ui.View):
     async def note_action(self, interaction: discord.Interaction, button: discord.ui.Button):
         """Add a note to the alert without taking action."""
         await interaction.response.send_modal(NoteModal(self))
-    
+
+# Compiled once at module level; shared by all flight-monitoring cogs.
+JOIN_PATTERN = re.compile(
+    r"\[.*?\]\s*.*?\s+(.*?)\s+from\s+(.*?)\s+is joining\s+(.*?)(?:\.|$)",
+    re.IGNORECASE
+)
+
 class FlightLoggerCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.island_map = {}
-        self.join_pattern = re.compile(
-            r"\[.*?\]\s*.*?\s+(.*?)\s+from\s+(.*?)\s+is joining\s+(.*?)(?:\.|$)",
-            re.IGNORECASE
-        )
+        self.join_pattern = JOIN_PATTERN
         self._db_conn = None
         self.last_processed = None
         self._pending_alerts: dict[str, int] = {}
@@ -710,22 +719,22 @@ class FlightLoggerCog(commands.Cog):
             for r in rows
         ]
 
-    async def record_island_visit(self, ign: str, origin_island: str, destination: str, found_members: list[discord.Member], guild_id: int | None, timestamp: int, authorized: int | None = None) -> int | None:
+    async def record_island_visit(self, ign: str, origin_island: str, destination: str, found_members: list[discord.Member], guild_id: int | None, timestamp: int, authorized: int | None = None, island_type: str = 'sub') -> int | None:
         """Record an island visit (authorized or unauthorized) in the database. Returns the visit ID."""
         db = await self._get_db()
         visit_id = None
         if found_members:
             for member in found_members:
                 cursor = await db.execute(
-                    "INSERT INTO island_visits (ign, origin_island, destination, user_id, guild_id, authorized, timestamp) VALUES (?, ?, ?, ?, ?, 1, ?)",
-                    (ign, origin_island, destination, member.id, guild_id, timestamp)
+                    "INSERT INTO island_visits (ign, origin_island, destination, user_id, guild_id, authorized, timestamp, island_type) VALUES (?, ?, ?, ?, ?, 1, ?, ?)",
+                    (ign, origin_island, destination, member.id, guild_id, timestamp, island_type)
                 )
                 visit_id = cursor.lastrowid
         else:
             auth_val = authorized if authorized is not None else 0
             cursor = await db.execute(
-                "INSERT INTO island_visits (ign, origin_island, destination, user_id, guild_id, authorized, timestamp) VALUES (?, ?, ?, NULL, ?, ?, ?)",
-                (ign, origin_island, destination, guild_id, auth_val, timestamp)
+                "INSERT INTO island_visits (ign, origin_island, destination, user_id, guild_id, authorized, timestamp, island_type) VALUES (?, ?, ?, NULL, ?, ?, ?, ?)",
+                (ign, origin_island, destination, guild_id, auth_val, timestamp, island_type)
             )
             visit_id = cursor.lastrowid
         await db.commit()
@@ -985,9 +994,9 @@ class FlightLoggerCog(commands.Cog):
             isl_clean = clean_text(island_raw)
             found = await asyncio.to_thread(self.find_matching_members, message.guild, ign_clean, isl_clean)
 
-            await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw)
+            await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw, island_type='sub')
 
-    async def log_result(self, found_members, status, ign, island, destination, timestamp=None):
+    async def log_result(self, found_members, status, ign, island, destination, timestamp=None, island_type: str = 'sub'):
         output_channel = self.bot.get_channel(Config.FLIGHT_LOG_CHANNEL_ID)
         if not output_channel: return
 
@@ -999,11 +1008,11 @@ class FlightLoggerCog(commands.Cog):
         if found_members:
             mentions = " ".join([m.mention for m in found_members])
             logger.info(f"[FLIGHT] Match: {ign} | {mentions}")
-            await self.record_island_visit(ign, island, destination, found_members, guild_id, visit_ts)
+            await self.record_island_visit(ign, island, destination, found_members, guild_id, visit_ts, island_type=island_type)
         else:
             destination_link = self.get_island_channel_link(destination)
             alert_ts = int(embed_timestamp.timestamp()) if hasattr(embed_timestamp, 'timestamp') else int(discord.utils.utcnow().timestamp())
-            visit_id = await self.record_island_visit(ign, island, destination, [], guild_id, alert_ts)
+            visit_id = await self.record_island_visit(ign, island, destination, [], guild_id, alert_ts, island_type=island_type)
 
             # Check if there is already a pending alert for this IGN to avoid flooding the channel
             ign_clean = clean_text(ign)
@@ -1554,3 +1563,58 @@ class FlightLoggerCog(commands.Cog):
 
 async def setup(bot):
     await bot.add_cog(FlightLoggerCog(bot))
+    await bot.add_cog(FreeFlightCog(bot))
+
+
+# ===========================================================================
+# FREE ISLAND FLIGHT COG
+# A lightweight listener for the free-island flight channel.
+# Records visits to the database with island_type='free'.
+# Does NOT post any alerts or embeds to Discord — website tracking only.
+# ===========================================================================
+
+class FreeFlightCog(commands.Cog, name="FreeFlightLogger"):
+    """Silently records free-island flight arrivals into island_visits."""
+
+    def __init__(self, bot):
+        self.bot = bot
+
+    async def cog_load(self):
+        await init_db()
+
+    @commands.Cog.listener()
+    async def on_message(self, message):
+        listen_id = Config.FREE_ISLAND_FLIGHT_LISTEN_CHANNEL_ID
+        if not listen_id:
+            return
+        if message.author == self.bot.user or message.channel.id != listen_id:
+            return
+        match = JOIN_PATTERN.search(message.content)
+        if not match:
+            return
+
+        ign_raw    = match.group(1).strip()
+        island_raw = match.group(2).strip()
+        dest_raw   = match.group(3).strip()
+        visit_ts   = int(message.created_at.timestamp())
+        guild      = self.bot.get_guild(Config.GUILD_ID)
+        guild_id   = guild.id if guild else None
+
+        # Delegate to FlightLoggerCog.record_island_visit to avoid duplicating
+        # DB logic; fall back to a direct insert if the cog is not loaded.
+        flight_cog = self.bot.cogs.get("FlightLogger")
+        if flight_cog is not None:
+            await flight_cog.record_island_visit(
+                ign_raw, island_raw, dest_raw, [], guild_id, visit_ts,
+                island_type='free',
+            )
+        else:
+            async with aiosqlite.connect(DB_NAME) as db:
+                await db.execute(
+                    "INSERT INTO island_visits "
+                    "(ign, origin_island, destination, user_id, guild_id, authorized, timestamp, island_type) "
+                    "VALUES (?, ?, ?, NULL, ?, 1, ?, 'free')",
+                    (ign_raw, island_raw, dest_raw, guild_id, visit_ts),
+                )
+                await db.commit()
+        logger.info(f"[FREE-FLIGHT] Recorded visit: {ign_raw} → {dest_raw}")

@@ -1,0 +1,73 @@
+{% extends "dashboard/base.html" %}
+
+{% block title %}Islands — ChoBot Dashboard{% endblock %}
+{% block header %}Islands{% endblock %}
+
+{% block content %}
+<div class="bg-gray-900 border border-gray-800 rounded-xl">
+  <div class="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+    <h2 class="text-sm font-semibold text-gray-200">
+      All Islands
+      <span class="ml-2 px-2 py-0.5 rounded-full bg-gray-800 text-gray-400 text-xs font-normal">{{ islands|length }}</span>
+    </h2>
+    <div class="flex gap-2 text-xs text-gray-500">
+      <span class="px-2 py-1 rounded bg-emerald-900/40 text-emerald-400 border border-emerald-800/50">Free</span>
+      <span class="px-2 py-1 rounded bg-purple-900/40 text-purple-400 border border-purple-800/50">VIP</span>
+    </div>
+  </div>
+
+  {% if islands %}
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-gray-500 border-b border-gray-800">
+            <th class="px-5 py-3 font-medium">Island</th>
+            <th class="px-5 py-3 font-medium">Type</th>
+            <th class="px-5 py-3 font-medium">Dodo Code</th>
+            <th class="px-5 py-3 font-medium">Visitors</th>
+            <th class="px-5 py-3 font-medium">Category</th>
+            <th class="px-5 py-3 font-medium">Theme</th>
+            <th class="px-5 py-3 font-medium">Notes</th>
+            <th class="px-5 py-3 font-medium"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-800">
+          {% for isl in islands %}
+            <tr class="hover:bg-gray-800/50 transition">
+              <td class="px-5 py-3 font-semibold text-gray-100">{{ isl.name }}</td>
+              <td class="px-5 py-3">
+                {% if isl.type == "VIP" %}
+                  <span class="px-2 py-0.5 rounded-full text-xs bg-purple-900/60 text-purple-300 border border-purple-800">VIP</span>
+                {% else %}
+                  <span class="px-2 py-0.5 rounded-full text-xs bg-emerald-900/60 text-emerald-300 border border-emerald-800">Free</span>
+                {% endif %}
+              </td>
+              <td class="px-5 py-3 font-mono text-teal-400">{{ isl.dodo }}</td>
+              <td class="px-5 py-3 text-gray-300">{{ isl.visitors }}</td>
+              <td class="px-5 py-3 text-gray-400 capitalize">{{ isl.category }}</td>
+              <td class="px-5 py-3">
+                <span class="inline-block w-3 h-3 rounded-full mr-1
+                  {% if isl.theme == 'pink' %}bg-pink-400
+                  {% elif isl.theme == 'teal' %}bg-teal-400
+                  {% elif isl.theme == 'purple' %}bg-purple-400
+                  {% elif isl.theme == 'gold' %}bg-yellow-400
+                  {% else %}bg-gray-400{% endif %}"></span>
+                {{ isl.theme }}
+              </td>
+              <td class="px-5 py-3 text-gray-500 text-xs max-w-xs truncate">{{ isl.notes or "—" }}</td>
+              <td class="px-5 py-3">
+                <a href="{{ url_for('dashboard.island_detail', name=isl.name) }}"
+                   class="text-xs text-teal-400 hover:text-teal-300 font-medium transition">Edit →</a>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="px-5 py-16 text-center">
+      <p class="text-gray-600 text-sm">No islands found. Check that VILLAGERS_DIR / TWITCH_VILLAGERS_DIR are configured.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

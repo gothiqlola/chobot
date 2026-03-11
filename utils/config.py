@@ -64,6 +64,15 @@ class Config:
     # Gemini AI (free tier — optional)
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
+    # Web Dashboard (mod-only)
+    DASHBOARD_SECRET = os.getenv("DASHBOARD_SECRET", "")
+
+    # Flask session signing key.
+    # If unset, a cryptographically random key is generated each process startup
+    # (browser sessions will be lost on restart).
+    # Set FLASK_SECRET_KEY explicitly in .env for persistent sessions.
+    FLASK_SECRET_KEY: str = os.getenv("FLASK_SECRET_KEY") or __import__("secrets").token_hex(32)
+
     # Google Sheets
     WORKBOOK_NAME = os.getenv('WORKBOOK_NAME')
     JSON_KEYFILE = 'service_account.json'

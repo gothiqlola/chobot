@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ChoBot Dashboard{% endblock %}</title>
+  <!-- Tailwind Play CDN (development/internal use).
+       The Play CDN is a dynamic script and does not support Subresource Integrity.
+       For production deployments, replace with a pre-built Tailwind CSS bundle. -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#f0fdfa',
+              100: '#ccfbf1',
+              200: '#99f6e4',
+              400: '#2dd4bf',
+              500: '#14b8a6',
+              600: '#0d9488',
+              700: '#0f766e',
+              800: '#115e59',
+              900: '#134e4a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body class="h-full flex bg-gray-950 text-gray-100 font-sans">
+
+  <!-- Sidebar -->
+  <aside class="w-60 shrink-0 bg-gray-900 border-r border-gray-800 flex flex-col min-h-screen">
+    <!-- Logo -->
+    <div class="px-5 py-5 border-b border-gray-800">
+      <span class="text-xl font-bold text-brand-400 tracking-wide">🌿 ChoBot</span>
+      <p class="text-xs text-gray-500 mt-0.5">Mod Dashboard</p>
+    </div>
+
+    <!-- Nav links -->
+    <nav class="flex-1 px-3 py-4 space-y-1 text-sm">
+      <a href="{{ url_for('dashboard.index') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition
+                {% if request.endpoint == 'dashboard.index' %}bg-gray-800 text-brand-400{% else %}text-gray-300{% endif %}">
+        <span>🏠</span> Overview
+      </a>
+      <a href="{{ url_for('dashboard.islands') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition
+                {% if request.endpoint in ('dashboard.islands','dashboard.island_detail') %}bg-gray-800 text-brand-400{% else %}text-gray-300{% endif %}">
+        <span>🏝️</span> Islands
+      </a>
+      <a href="{{ url_for('dashboard.logs') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition
+                {% if request.endpoint == 'dashboard.logs' %}bg-gray-800 text-brand-400{% else %}text-gray-300{% endif %}">
+        <span>📋</span> XLog Reports
+      </a>
+      <a href="{{ url_for('dashboard.analytics') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition
+                {% if request.endpoint == 'dashboard.analytics' %}bg-gray-800 text-brand-400{% else %}text-gray-300{% endif %}">
+        <span>📊</span> Analytics
+      </a>
+
+      <!-- API reference section -->
+      <div class="pt-4 border-t border-gray-800 mt-4">
+        <p class="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">API</p>
+        <a href="{{ url_for('dashboard.api_islands_list') }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-gray-400 text-xs">
+          <span>🔗</span> /dashboard/api/islands
+        </a>
+        <a href="{{ url_for('dashboard.api_analytics') }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-gray-400 text-xs">
+          <span>🔗</span> /dashboard/api/analytics
+        </a>
+        <a href="{{ url_for('dashboard.api_logs') }}"
+           class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition text-gray-400 text-xs">
+          <span>🔗</span> /dashboard/api/logs
+        </a>
+      </div>
+    </nav>
+
+    <!-- Logout -->
+    <div class="px-3 py-4 border-t border-gray-800">
+      <a href="{{ url_for('dashboard.logout') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-400 hover:bg-red-900/40 hover:text-red-400 transition">
+        <span>🚪</span> Logout
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="flex-1 flex flex-col min-h-screen overflow-y-auto">
+    <!-- Top bar -->
+    <header class="h-14 border-b border-gray-800 bg-gray-900/60 px-6 flex items-center justify-between shrink-0">
+      <h1 class="text-sm font-semibold text-gray-200">{% block header %}Dashboard{% endblock %}</h1>
+      <span class="text-xs text-gray-500">Mod access only</span>
+    </header>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="px-6 pt-4 space-y-2">
+          {% for category, message in messages %}
+            <div class="px-4 py-3 rounded-lg text-sm
+              {% if category == 'error' %}bg-red-900/50 border border-red-700 text-red-300
+              {% else %}bg-emerald-900/50 border border-emerald-700 text-emerald-300{% endif %}">
+              {{ message }}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- Page body -->
+    <main class="flex-1 p-6">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+</body>
+</html>

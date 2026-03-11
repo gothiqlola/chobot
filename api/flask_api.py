@@ -20,13 +20,19 @@ from thefuzz import process, fuzz
 
 from utils.config import Config
 from utils.helpers import format_locations_text, parse_locations_json, normalize_text
+from api.dashboard import dashboard, init_dashboard_db
 
 
 logger = logging.getLogger("FlaskAPI")
 
 # Initialize Flask app
 app = Flask(__name__)
+app.secret_key = Config.FLASK_SECRET_KEY
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+# Register the mod-only web dashboard
+app.register_blueprint(dashboard, url_prefix="/dashboard")
+init_dashboard_db()
 
 # Suppress Flask/Werkzeug standard logs
 logging.getLogger('werkzeug').setLevel(logging.ERROR)

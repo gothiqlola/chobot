@@ -10,7 +10,7 @@
 {% block content %}
 
 <!-- Stat tiles -->
-<div class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-4 mb-4">
+<div class="row row-cols-2 row-cols-md-3 g-4 mb-4">
   <div class="col">
     <div class="stat-card">
       <div class="stat-label"><i class="bi bi-geo-alt-fill me-1"></i>Total Islands</div>
@@ -20,25 +20,13 @@
   <div class="col">
     <div class="stat-card">
       <div class="stat-label"><span class="status-dot d-inline-block me-1" style="background:#28a745;"></span>Online</div>
-      <div class="stat-value text-nook-green">{{ status_map.get('ONLINE', 0) }}</div>
-    </div>
-  </div>
-  <div class="col">
-    <div class="stat-card">
-      <div class="stat-label"><span class="status-dot d-inline-block me-1" style="background:#f5a623;"></span>Sub Only</div>
-      <div class="stat-value" style="color:#f5a623;">{{ status_map.get('SUB ONLY', 0) }}</div>
-    </div>
-  </div>
-  <div class="col">
-    <div class="stat-card">
-      <div class="stat-label"><span class="status-dot d-inline-block me-1" style="background:#4f9ef8;"></span>Refreshing</div>
-      <div class="stat-value" style="color:#4f9ef8;">{{ status_map.get('REFRESHING', 0) }}</div>
+      <div class="stat-value text-nook-green">{{ online_count }}</div>
     </div>
   </div>
   <div class="col">
     <div class="stat-card">
       <div class="stat-label"><span class="status-dot d-inline-block me-1" style="background:#ccc;"></span>Offline</div>
-      <div class="stat-value" style="color:#aaa;">{{ status_map.get('OFFLINE', 0) }}</div>
+      <div class="stat-value" style="color:#aaa;">{{ offline_count }}</div>
     </div>
   </div>
 </div>
@@ -62,28 +50,14 @@
             <span class="status-dot" style="background:#28a745;"></span>
             <span class="fw-bold" style="color:#888;font-size:.88rem;">Online</span>
             <span class="ms-auto fw-black ac-font" style="color:var(--nook-green);font-size:1.2rem;">
-              {{ status_map.get('ONLINE', 0) }}
-            </span>
-          </div>
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="status-dot" style="background:#f5a623;"></span>
-            <span class="fw-bold" style="color:#888;font-size:.88rem;">Sub Only</span>
-            <span class="ms-auto fw-black ac-font" style="color:#f5a623;font-size:1.2rem;">
-              {{ status_map.get('SUB ONLY', 0) }}
-            </span>
-          </div>
-          <div class="d-flex align-items-center gap-2 mb-2">
-            <span class="status-dot" style="background:#4f9ef8;"></span>
-            <span class="fw-bold" style="color:#888;font-size:.88rem;">Refreshing</span>
-            <span class="ms-auto fw-black ac-font" style="color:#4f9ef8;font-size:1.2rem;">
-              {{ status_map.get('REFRESHING', 0) }}
+              {{ online_count }}
             </span>
           </div>
           <div class="d-flex align-items-center gap-2 mb-3">
             <span class="status-dot" style="background:#ccc;"></span>
             <span class="fw-bold" style="color:#888;font-size:.88rem;">Offline</span>
             <span class="ms-auto fw-black ac-font" style="color:#aaa;font-size:1.2rem;">
-              {{ status_map.get('OFFLINE', 0) }}
+              {{ offline_count }}
             </span>
           </div>
           <div class="divider-dashed mt-0 mb-2"></div>
@@ -109,7 +83,7 @@
           <div class="mb-1 d-flex justify-content-between align-items-center">
             <span class="x-small fw-bold" style="color:#888;">
               <span class="status-dot d-inline-block me-1" style="background:#28a745;"></span>
-              <strong style="color:var(--nook-green);">{{ status_map.get('ONLINE', 0) }}</strong>
+              <strong style="color:var(--nook-green);">{{ online_count }}</strong>
               of {{ island_count }} islands <strong style="color:var(--nook-green);">ONLINE</strong>
             </span>
             <span class="x-small fw-bold" style="color:#ccc;">{{ online_pct }}%</span>
@@ -118,47 +92,7 @@
             <div class="progress-bar rounded-pill"
                  role="progressbar"
                  style="width:{{ online_pct }}%;background:var(--nook-green);"
-                 aria-valuenow="{{ status_map.get('ONLINE', 0) }}"
-                 aria-valuemin="0"
-                 aria-valuemax="{{ island_count }}"></div>
-          </div>
-        </div>
-
-        <!-- Sub Only -->
-        <div class="mb-4">
-          <div class="mb-1 d-flex justify-content-between align-items-center">
-            <span class="x-small fw-bold" style="color:#888;">
-              <span class="status-dot d-inline-block me-1" style="background:#f5a623;"></span>
-              <strong style="color:#f5a623;">{{ status_map.get('SUB ONLY', 0) }}</strong>
-              of {{ island_count }} islands <strong style="color:#f5a623;">SUB ONLY</strong>
-            </span>
-            <span class="x-small fw-bold" style="color:#ccc;">{{ sub_pct }}%</span>
-          </div>
-          <div class="progress rounded-pill" style="height:10px;background:#fff8e1;">
-            <div class="progress-bar rounded-pill"
-                 role="progressbar"
-                 style="width:{{ sub_pct }}%;background:#f5a623;"
-                 aria-valuenow="{{ status_map.get('SUB ONLY', 0) }}"
-                 aria-valuemin="0"
-                 aria-valuemax="{{ island_count }}"></div>
-          </div>
-        </div>
-
-        <!-- Refreshing -->
-        <div class="mb-4">
-          <div class="mb-1 d-flex justify-content-between align-items-center">
-            <span class="x-small fw-bold" style="color:#888;">
-              <span class="status-dot d-inline-block me-1" style="background:#4f9ef8;"></span>
-              <strong style="color:#4f9ef8;">{{ status_map.get('REFRESHING', 0) }}</strong>
-              of {{ island_count }} islands <strong style="color:#4f9ef8;">REFRESHING</strong>
-            </span>
-            <span class="x-small fw-bold" style="color:#ccc;">{{ ref_pct }}%</span>
-          </div>
-          <div class="progress rounded-pill" style="height:10px;background:#e3f2fd;">
-            <div class="progress-bar rounded-pill"
-                 role="progressbar"
-                 style="width:{{ ref_pct }}%;background:#4f9ef8;"
-                 aria-valuenow="{{ status_map.get('REFRESHING', 0) }}"
+                 aria-valuenow="{{ online_count }}"
                  aria-valuemin="0"
                  aria-valuemax="{{ island_count }}"></div>
           </div>
@@ -169,7 +103,7 @@
           <div class="mb-1 d-flex justify-content-between align-items-center">
             <span class="x-small fw-bold" style="color:#888;">
               <span class="status-dot d-inline-block me-1" style="background:#ccc;"></span>
-              <strong style="color:#aaa;">{{ status_map.get('OFFLINE', 0) }}</strong>
+              <strong style="color:#aaa;">{{ offline_count }}</strong>
               of {{ island_count }} islands <strong style="color:#aaa;">OFFLINE</strong>
             </span>
             <span class="x-small fw-bold" style="color:#ccc;">{{ off_pct }}%</span>
@@ -178,7 +112,7 @@
             <div class="progress-bar rounded-pill"
                  role="progressbar"
                  style="width:{{ off_pct }}%;background:#ccc;"
-                 aria-valuenow="{{ status_map.get('OFFLINE', 0) }}"
+                 aria-valuenow="{{ offline_count }}"
                  aria-valuemin="0"
                  aria-valuemax="{{ island_count }}"></div>
           </div>
@@ -192,10 +126,8 @@
 
 <!-- Per-status island tables -->
 {% for status_label, color, bg, border in [
-    ('ONLINE',     '#28a745', '#e8f5e9', '#b8dfc0'),
-    ('SUB ONLY',   '#f5a623', '#fff8e1', '#ffe082'),
-    ('REFRESHING', '#4f9ef8', '#e3f2fd', '#90caf9'),
-    ('OFFLINE',    '#aaa',    '#f5f5f5', '#e0e0e0'),
+    ('ONLINE',  '#28a745', '#e8f5e9', '#b8dfc0'),
+    ('OFFLINE', '#aaa',    '#f5f5f5', '#e0e0e0'),
 ] %}
 {% set bucket = grouped.get(status_label, []) %}
 {% if bucket %}
@@ -278,10 +210,8 @@
 {% block scripts %}
 <script>
 (function () {
-  var online   = {{ status_map.get('ONLINE', 0) | tojson }};
-  var subOnly  = {{ status_map.get('SUB ONLY', 0) | tojson }};
-  var refresh  = {{ status_map.get('REFRESHING', 0) | tojson }};
-  var offline  = {{ status_map.get('OFFLINE', 0) | tojson }};
+  var online  = {{ online_count | tojson }};
+  var offline = {{ offline_count | tojson }};
 
   var ctx = document.getElementById('statusChart');
   if (!ctx) return;
@@ -289,10 +219,10 @@
   new Chart(ctx, {
     type: 'doughnut',
     data: {
-      labels: ['Online', 'Sub Only', 'Refreshing', 'Offline'],
+      labels: ['Online', 'Offline'],
       datasets: [{
-        data: [online, subOnly, refresh, offline],
-        backgroundColor: ['#28a745', '#f5a623', '#4f9ef8', '#d9d9d9'],
+        data: [online, offline],
+        backgroundColor: ['#28a745', '#d9d9d9'],
         borderWidth: 0,
         hoverOffset: 6,
       }]

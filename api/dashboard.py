@@ -975,40 +975,41 @@ def island_status():
     try:
         rows = db.execute("SELECT * FROM islands ORDER BY name").fetchall()
         db_islands = [_row_to_island_dict(dict(r)) for r in rows]
-        status_rows = db.execute(
-            "SELECT status, COUNT(*) AS cnt FROM islands GROUP BY status"
-        ).fetchall()
+        bot_status = _load_bot_status_map(db)
     except sqlite3.Error:
         db_islands = []
-        status_rows = []
+        bot_status = {}
     finally:
         db.close()
 
-    status_map = {r["status"]: r["cnt"] for r in status_rows}
-    island_count = sum(status_map.values())
-    online_count = status_map.get("ONLINE", 0)
+    # Attach discord_bot_online to each island record (default False if not in bot_status)
+    for isl in db_islands:
+        isl["discord_bot_online"] = bot_status.get(isl.get("id", ""), False)
+
+    island_count = len(db_islands)
+    online_count = sum(1 for isl in db_islands if isl.get("discord_bot_online"))
+    offline_count = island_count - online_count
 
     def _pct(count):
         return round(count * 100 / island_count) if island_count else 0
 
     online_pct = _pct(online_count)
-    sub_pct = _pct(status_map.get("SUB ONLY", 0))
-    ref_pct = _pct(status_map.get("REFRESHING", 0))
-    off_pct = _pct(status_map.get("OFFLINE", 0))
+    off_pct = _pct(offline_count)
 
-    # Group islands by status for the per-section tables
-    grouped = {"ONLINE": [], "SUB ONLY": [], "REFRESHING": [], "OFFLINE": []}
+    # Group islands by discord_bot_online for the per-section tables
+    grouped = {"ONLINE": [], "OFFLINE": []}
     for isl in db_islands:
-        bucket = isl.get("status", "OFFLINE")
-        grouped.setdefault(bucket, []).append(isl)
+        if isl.get("discord_bot_online"):
+            grouped["ONLINE"].append(isl)
+        else:
+            grouped["OFFLINE"].append(isl)
 
     return render_template(
         "dashboard/status.html",
         island_count=island_count,
-        status_map=status_map,
+        online_count=online_count,
+        offline_count=offline_count,
         online_pct=online_pct,
-        sub_pct=sub_pct,
-        ref_pct=ref_pct,
         off_pct=off_pct,
         grouped=grouped,
     )

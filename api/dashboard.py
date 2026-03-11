@@ -505,6 +505,18 @@ def oauth2_callback():
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             token_resp = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode(errors="replace")
+        except Exception:
+            pass
+        logger.error(
+            "OAuth token exchange HTTP %s — redirect_uri=%s — Discord response: %s",
+            exc.code, callback_url, body,
+        )
+        flash("Failed to exchange authorization code with Discord.", "error")
+        return redirect(url_for("dashboard.login"))
     except (urllib.error.URLError, json.JSONDecodeError, OSError) as exc:
         logger.error("OAuth token exchange failed: %s", exc)
         flash("Failed to exchange authorization code with Discord.", "error")

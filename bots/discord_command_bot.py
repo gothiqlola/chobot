@@ -886,22 +886,6 @@ class DiscordCommandCog(commands.Cog):
             island_clean = clean_text(island)
             channel_id = self.free_island_lookup.get(island_clean)
 
-            # Fallback: scan all guild text channels if not found via category lookup
-            if not channel_id:
-                for ch in guild.channels:
-                    if isinstance(ch, discord.TextChannel) and island_clean in clean_text(ch.name):
-                        channel_id = ch.id
-                        break
-
-            if not channel_id:
-                results.append((island, "❓", "Channel not found", None))
-                continue
-
-            channel = guild.get_channel(channel_id)
-            if not channel:
-                results.append((island, "❓", "Channel not found", None))
-                continue
-
             # Find the bot for this island by name: "Chobot <island name>"
             island_bot = None
             if island_bot_role:
@@ -911,44 +895,14 @@ class DiscordCommandCog(commands.Cog):
                         island_bot = member
                         break
 
-            # Check 1: If the island's bot is found and online or idle, it's working
+            # Status is determined solely by the bot's presence (online or idle = up)
             if island_bot and island_bot.status in (discord.Status.online, discord.Status.idle):
                 results.append((island, "✅", "Bot online", channel_id))
                 online_count += 1
-                continue
-
-            # Check 2: Scan recent channel messages for dodo codes or Chopaeng visitor
-            try:
-                messages = [msg async for msg in channel.history(limit=25)]
-            except discord.Forbidden:
-                results.append((island, "❓", "No channel access", channel_id))
-                continue
-
-            island_up = False
-            status_reason = ""
-
-            for msg in messages:
-                if island_bot:
-                    if msg.author.id != island_bot.id:
-                        continue
-                elif not msg.author.bot:
-                    continue
-
-                if DODO_CODE_PATTERN.search(msg.content):
-                    island_up = True
-                    status_reason = "Dodo code active"
-                    break
-
-                if ISLAND_HOST_NAME in msg.content.lower():
-                    island_up = True
-                    status_reason = "Chopaeng is visiting"
-                    break
-
-            if island_up:
-                results.append((island, "✅", status_reason, channel_id))
-                online_count += 1
+            elif island_bot:
+                results.append((island, "❌", "Bot offline", channel_id))
             else:
-                results.append((island, "❌", "No recent activity", channel_id))
+                results.append((island, "❓", "Bot not found", channel_id))
 
         # Build embed
         total = len(Config.FREE_ISLANDS)

@@ -4,7 +4,6 @@ Handles Discord commands for item and villager search with rich embeds
 """
 
 import asyncio
-import importlib
 import os
 import sqlite3
 import subprocess
@@ -1324,7 +1323,7 @@ class DiscordCommandCog(commands.Cog):
     @commands.hybrid_command(name="update")
     @commands.has_permissions(administrator=True)
     async def update(self, ctx):
-        """OTA update: pull latest code from git and reload cogs without restarting (Admin only)"""
+        """OTA update: pull latest code from git and restart the bot (Admin only)"""
         await ctx.reply("🔄 Fetching latest changes from git...")
 
         # Run git pull, forcing English output for reliable message parsing
@@ -1348,50 +1347,14 @@ class DiscordCommandCog(commands.Cog):
         await ctx.reply(f"```\n{git_output[:GIT_OUTPUT_MAX_LENGTH]}\n```")
 
         if "already up to date" in git_output.lower():
-            await ctx.reply("✅ Already up to date. No reload needed.")
+            await ctx.reply("✅ Already up to date. No restart needed.")
             return
 
-        # Reload modules and cogs
-        try:
-            # Reload all loaded utils.* submodules first so reloaded cogs import fresh code
-            for mod_name in sorted(sys.modules.keys()):
-                if mod_name == "utils" or mod_name.startswith("utils."):
-                    importlib.reload(sys.modules[mod_name])
-
-            bot = self.bot
-            data_manager = self.data_manager
-
-            # Reload FlightLoggerCog only if it was already loaded
-            had_flight_logger = 'FlightLoggerCog' in bot.cogs
-            if had_flight_logger:
-                await bot.remove_cog('FlightLoggerCog')
-                import bots.flight_logger as fl_module
-                importlib.reload(fl_module)
-
-            # Reload this module and re-add DiscordCommandCog.
-            # Note: ctx.reply() works even after remove_cog because ctx holds a
-            # direct reference to the channel/message, not to the cog instance.
-            import bots.discord_command_bot as cmd_module
-            await bot.remove_cog('DiscordCommandCog')
-            importlib.reload(cmd_module)
-            await bot.add_cog(cmd_module.DiscordCommandCog(bot, data_manager))
-
-            if had_flight_logger:
-                await bot.add_cog(fl_module.FlightLoggerCog(bot))
-
-            # Re-sync slash commands with updated tree
-            if Config.GUILD_ID:
-                guild_obj = discord.Object(id=Config.GUILD_ID)
-                bot.tree.copy_global_to(guild=guild_obj)
-                await bot.tree.sync(guild=guild_obj)
-            else:
-                await bot.tree.sync()
-
-            await ctx.reply("✅ OTA update complete! All cogs reloaded with new code.")
-            logger.info("[DISCORD] OTA update completed successfully.")
-        except Exception as e:
-            await ctx.reply(f"❌ Reload failed: `{e}`")
-            logger.error(f"[DISCORD] OTA update failed: {e}", exc_info=True)
+        await ctx.reply("✅ Update pulled! Restarting bot now... 🔁")
+        logger.info("[DISCORD] OTA update pulled new code. Restarting process...")
+        await asyncio.sleep(1)
+        await self.bot.close()
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
     @update.error
     async def update_error(self, ctx, error):

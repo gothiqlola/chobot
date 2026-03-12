@@ -306,10 +306,11 @@ def api_auth_required(f):
 @dashboard.context_processor
 def _inject_user():
     return {
-        "current_role":      session.get("mod_role", "admin"),
-        "discord_username":  session.get("discord_username", ""),
-        "discord_user_id":   session.get("discord_user_id", ""),
-        "oauth_configured":  bool(Config.DISCORD_CLIENT_ID),
+        "current_role":       session.get("mod_role", "admin"),
+        "discord_username":   session.get("discord_username", ""),
+        "discord_user_id":    session.get("discord_user_id", ""),
+        "discord_avatar_url": session.get("discord_avatar_url", ""),
+        "oauth_configured":   bool(Config.DISCORD_CLIENT_ID),
     }
 
 
@@ -454,11 +455,12 @@ def login():
 
 @dashboard.route("/logout")
 def logout():
-    session.pop("mod_logged_in",    None)
-    session.pop("mod_role",         None)
-    session.pop("discord_user_id",  None)
-    session.pop("discord_username", None)
-    session.pop("oauth_state",      None)
+    session.pop("mod_logged_in",       None)
+    session.pop("mod_role",            None)
+    session.pop("discord_user_id",     None)
+    session.pop("discord_username",    None)
+    session.pop("discord_avatar_url",  None)
+    session.pop("oauth_state",         None)
     return redirect(url_for("dashboard.login"))
 
 
@@ -569,7 +571,7 @@ def oauth2_callback():
             member_data = json.loads(resp.read().decode())
         member_roles = [str(r) for r in member_data.get("roles", [])]
         try:
-            member_perms = int(member_data.get("permissions", "0") or "0")
+            member_perms = int(member_data.get("permissions", "0") or 0)
         except (ValueError, TypeError):
             member_perms = 0
         # Guild administrators (ADMINISTRATOR permission bit) always get admin access,
@@ -600,8 +602,9 @@ def oauth2_callback():
         return redirect(url_for("dashboard.login"))
 
     # Fetch basic user info for display
-    discord_username = ""
-    discord_user_id  = ""
+    discord_username   = ""
+    discord_user_id    = ""
+    discord_avatar_url = ""
     try:
         user_req = urllib.request.Request(
             "https://discord.com/api/users/@me",
@@ -614,13 +617,22 @@ def oauth2_callback():
             user_data = json.loads(resp.read().decode())
         discord_user_id  = str(user_data.get("id", ""))
         discord_username = user_data.get("global_name") or user_data.get("username", "")
+        avatar_hash      = user_data.get("avatar") or ""
+        # Discord avatar hashes are lowercase hex strings (32 chars) or
+        # animated variants prefixed with 'a_'.  Validate before using.
+        if (discord_user_id and avatar_hash
+                and re.fullmatch(r"a?_?[0-9a-f]{32}", avatar_hash)):
+            discord_avatar_url = (
+                f"https://cdn.discordapp.com/avatars/{discord_user_id}/{avatar_hash}.png?size=64"
+            )
     except (urllib.error.URLError, json.JSONDecodeError, OSError):
-        pass  # Non-critical — display name is optional
+        pass  # Non-critical — display info is optional
 
-    session["mod_logged_in"]   = True
-    session["mod_role"]        = role
-    session["discord_user_id"] = discord_user_id
-    session["discord_username"]= discord_username
+    session["mod_logged_in"]      = True
+    session["mod_role"]           = role
+    session["discord_user_id"]    = discord_user_id
+    session["discord_username"]   = discord_username
+    session["discord_avatar_url"] = discord_avatar_url
     session.permanent          = True
     logger.info("OAuth login: user=%s role=%s", discord_username, role)
     return redirect(url_for("dashboard.index"))

@@ -116,9 +116,30 @@
       </div>
       <div class="d-flex align-items-center gap-2">
         {% if discord_username %}
-        <span class="x-small fw-bold" style="color:#aaa;">{{ discord_username }}</span>
-        {% endif %}
-        {% if current_role == 'admin' %}
+        <div class="d-flex align-items-center gap-2">
+          {% if discord_avatar_url %}
+          <img src="{{ discord_avatar_url }}"
+               alt="{{ discord_username }}"
+               style="width:32px;height:32px;border-radius:50%;object-fit:cover;
+                      border:2px solid var(--nook-accent);flex-shrink:0;">
+          {% else %}
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--nook-accent);
+                      color:#1a4d1d;font-weight:800;font-size:.9rem;flex-shrink:0;
+                      display:flex;align-items:center;justify-content:center;
+                      border:2px solid var(--nook-dark);">
+            {{ discord_username[0]|upper }}
+          </div>
+          {% endif %}
+          <div class="d-flex flex-column" style="line-height:1.25;">
+            <span style="font-weight:800;font-size:.85rem;color:#3d3d3d;">{{ discord_username }}</span>
+            {% if current_role == 'admin' %}
+            <span style="font-size:.65rem;color:var(--nook-dark);font-weight:700;">
+              <i class="bi bi-shield-lock-fill me-1"></i>Admin
+            </span>
+            {% endif %}
+          </div>
+        </div>
+        {% elif current_role == 'admin' %}
         <span class="badge rounded-pill"
               style="background:var(--nook-accent);color:#1a4d1d;font-weight:800;font-size:.7rem;">
           <i class="bi bi-shield-lock-fill me-1"></i>Admin

@@ -621,7 +621,7 @@ def oauth2_callback():
         # Discord avatar hashes are lowercase hex strings (32 chars) or
         # animated variants prefixed with 'a_'.  Validate before using.
         if (discord_user_id and avatar_hash
-                and re.fullmatch(r"a?_?[0-9a-f]{32}", avatar_hash)):
+                and re.fullmatch(r"(?:a_)?[0-9a-f]{32}", avatar_hash)):
             discord_avatar_url = (
                 f"https://cdn.discordapp.com/avatars/{discord_user_id}/{avatar_hash}.png?size=64"
             )

@@ -917,6 +917,10 @@ def logs():
     sort_order        = request.args.get("sort_order", "desc")
     log_type          = request.args.get("type", "flights")
     ign_filter        = request.args.get("ign", "").strip()
+    _ALLOWED_ACTION_TYPES = {"WARN", "KICK", "BAN", "DISMISS", "NOTE", "ADMIT"}
+    action_type_filter = request.args.get("action_type", "").strip().upper()
+    if action_type_filter not in _ALLOWED_ACTION_TYPES:
+        action_type_filter = ""
 
     # Sanitise sort params
     if sort_by not in _ALLOWED_SORT_COLS:
@@ -937,6 +941,9 @@ def logs():
             if ign_filter:
                 conditions.append("LOWER(iv.ign) LIKE LOWER(?)")
                 params.append(f"%{ign_filter}%")
+            if action_type_filter:
+                conditions.append("UPPER(w.action_type) = ?")
+                params.append(action_type_filter)
             where = _where_clause(conditions)
             total = db.execute(
                 f"SELECT COUNT(*) FROM warnings w "
@@ -1046,6 +1053,7 @@ def logs():
         log_type=log_type,
         island_names=island_names,
         ign_filter=ign_filter,
+        action_type_filter=action_type_filter,
     )
 
 

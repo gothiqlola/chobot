@@ -877,7 +877,7 @@ def island_detail(name):
     try:
         sparkline_7d = [
             dict(r) for r in db_sp.execute(
-                "SELECT DATE(timestamp, 'unixepoch') AS day, COUNT(*) AS count "
+                "SELECT DATE(timestamp, 'unixepoch', '+8 hours') AS day, COUNT(*) AS count "
                 "FROM island_visits "
                 "WHERE LOWER(destination) = LOWER(?) "
                 "AND timestamp > strftime('%s','now','-7 days') "
@@ -1144,7 +1144,7 @@ def analytics():
         ]
         visits_by_day = [
             dict(r) for r in db.execute(
-                "SELECT DATE(timestamp, 'unixepoch') AS day, COUNT(*) AS count "
+                "SELECT DATE(timestamp, 'unixepoch', '+8 hours') AS day, COUNT(*) AS count "
                 "FROM island_visits "
                 f"WHERE timestamp > strftime('%s','now','-7 days'){it_clause} "
                 "GROUP BY day ORDER BY day",
@@ -1153,7 +1153,7 @@ def analytics():
         ]
         visits_by_day_30 = [
             dict(r) for r in db.execute(
-                "SELECT DATE(timestamp, 'unixepoch') AS day, COUNT(*) AS count "
+                "SELECT DATE(timestamp, 'unixepoch', '+8 hours') AS day, COUNT(*) AS count "
                 "FROM island_visits "
                 f"WHERE timestamp > strftime('%s','now','-30 days'){it_clause} "
                 "GROUP BY day ORDER BY day",
@@ -1162,7 +1162,7 @@ def analytics():
         ]
         visits_by_hour = [
             dict(r) for r in db.execute(
-                "SELECT CAST(strftime('%H', timestamp, 'unixepoch') AS INTEGER) AS hour, "
+                "SELECT CAST(strftime('%H', timestamp, 'unixepoch', '+8 hours') AS INTEGER) AS hour, "
                 "COUNT(*) AS count "
                 f"FROM island_visits {'WHERE island_type = ?' if island_type_filter else ''} "
                 "GROUP BY hour ORDER BY hour",
@@ -1235,7 +1235,7 @@ def analytics():
         # Day-of-week breakdown (0=Sunday … 6=Saturday)
         dow_raw = [
             dict(r) for r in db.execute(
-                "SELECT CAST(strftime('%w', timestamp, 'unixepoch') AS INTEGER) AS dow, "
+                "SELECT CAST(strftime('%w', timestamp, 'unixepoch', '+8 hours') AS INTEGER) AS dow, "
                 "COUNT(*) AS count "
                 f"FROM island_visits {'WHERE island_type = ?' if island_type_filter else ''} "
                 "GROUP BY dow ORDER BY dow",
@@ -1301,9 +1301,9 @@ def analytics():
                 "SELECT COUNT(*) FROM warnings "
                 "WHERE timestamp > strftime('%s','now','start of day')"
             ).fetchone()[0]
-        # Peak hour (hour with the most visits all-time)
+        # Peak hour (hour with the most visits all-time, in UTC+8)
         peak_hour_row = db.execute(
-            "SELECT CAST(strftime('%H', timestamp, 'unixepoch') AS INTEGER) AS hour, "
+            "SELECT CAST(strftime('%H', timestamp, 'unixepoch', '+8 hours') AS INTEGER) AS hour, "
             "COUNT(*) AS cnt "
             f"FROM island_visits {'WHERE island_type = ?' if island_type_filter else ''} "
             "GROUP BY hour ORDER BY cnt DESC LIMIT 1",
@@ -1400,7 +1400,7 @@ def analytics_export_csv():
         # Limit to 10 000 rows to keep response size and memory usage reasonable.
         rows = db.execute(
             "SELECT ign, origin_island, destination, island_type, authorized, "
-            "datetime(timestamp, 'unixepoch') AS visit_time "
+            "datetime(timestamp, 'unixepoch', '+8 hours') AS visit_time "
             f"FROM island_visits WHERE 1=1{it_clause} "
             "ORDER BY timestamp DESC LIMIT 10000",
             it_params,
@@ -1412,7 +1412,7 @@ def analytics_export_csv():
 
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["IGN", "Origin Island", "Destination", "Island Type", "Authorized", "Visit Time (UTC)"])
+    writer.writerow(["IGN", "Origin Island", "Destination", "Island Type", "Authorized", "Visit Time (UTC+8)"])
     for r in rows:
         writer.writerow([
             r["ign"],

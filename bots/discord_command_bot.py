@@ -1189,13 +1189,13 @@ class DiscordCommandCog(commands.Cog):
 
         color = discord.Color.green() if available > 0 else discord.Color.red()
         embed = discord.Embed(
-            title=f"🏝️ Visitors on {island_name}",
+            title=f"🏝Visitors on {island_name}",
             description="\n".join(visitor_display) if visitor_display else "*No visitor data available.*",
             color=color,
             timestamp=discord.utils.utcnow()
         )
         embed.add_field(
-            name="📊 Slots",
+            name="Slots",
             value=f"`{len(filled)}/{total}` occupied · `{available}` available",
             inline=False
         )
@@ -1209,7 +1209,7 @@ class DiscordCommandCog(commands.Cog):
         embed = discord.Embed(
             title="✈️ Dodo Code Sent!",
             description=(
-                f"Hey {ctx.author.mention}! 📬 The dodo code has been sent to your DMs.\n\n"
+                f"Hey {ctx.author.mention}! The dodo code has been sent to your DMs.\n\n"
                 "Head to the airport and open the **Dodo Airlines** app to enter it!"
             ),
             color=discord.Color.blue(),
@@ -1265,7 +1265,7 @@ class DiscordCommandCog(commands.Cog):
 
         return False
 
-    @tasks.loop(minutes=5)
+    @tasks.loop(seconds=30)
     async def island_monitor_loop(self):
         """Background task: detect island down/up transitions and notify in channel."""
         guild = self.bot.get_guild(Config.GUILD_ID)
@@ -1381,7 +1381,7 @@ class DiscordCommandCog(commands.Cog):
     @commands.has_permissions(administrator=True)
     async def update(self, ctx):
         """OTA update: pull latest code from git and restart the bot (Admin only)"""
-        await ctx.reply("🔄 Fetching latest changes from git...")
+        await ctx.reply("Fetching latest changes from git...")
 
         # Run git pull, forcing English output for reliable message parsing
         try:
@@ -1398,22 +1398,22 @@ class DiscordCommandCog(commands.Cog):
             )
             git_output = result.stdout.strip() or result.stderr.strip() or "No output."
         except Exception as e:
-            await ctx.reply(f"❌ Git pull failed: `{e}`")
+            await ctx.reply(f"Git pull failed: `{e}`")
             return
 
         await ctx.reply(f"```\n{git_output[:GIT_OUTPUT_MAX_LENGTH]}\n```")
 
         if result.returncode != 0:
             await ctx.reply(
-                f"❌ Git pull failed (exit code {result.returncode}). Not restarting."
+                f"Git pull failed (exit code {result.returncode}). Not restarting."
             )
             return
 
         if "already up to date" in git_output.lower():
-            await ctx.reply("✅ Already up to date. No restart needed.")
+            await ctx.reply("Already up to date. No restart needed.")
             return
 
-        await ctx.reply("✅ Update pulled! Restarting bot now... 🔁")
+        await ctx.reply("Update pulled! Restarting bot now...")
         logger.info("[DISCORD] OTA update pulled new code. Restarting process...")
         await asyncio.sleep(1)
 

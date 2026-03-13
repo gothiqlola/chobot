@@ -18,7 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 from functools import wraps
 
 import boto3
@@ -377,15 +377,12 @@ def _collect_fs_islands():
     return result
 
 
-_TZ_UTC8 = timezone(timedelta(hours=8))
-
-
 def _ts_to_str(ts):
-    """Convert a Unix timestamp int to a human-readable UTC+8 string."""
+    """Convert a Unix timestamp int to a human-readable UTC string."""
     if ts is None:
         return "\u2014"
     try:
-        return datetime.fromtimestamp(int(ts), tz=_TZ_UTC8).strftime("%Y-%m-%d %H:%M UTC+8")
+        return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     except (ValueError, OverflowError, OSError):
         return str(ts)
 

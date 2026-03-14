@@ -18,7 +18,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from functools import wraps
 
 import boto3
@@ -678,17 +678,42 @@ def index():
             "SELECT COUNT(*) FROM island_visits "
             "WHERE timestamp > strftime('%s','now','-7 days')"
         ).fetchone()[0]
+        warnings_week  = db.execute(
+            "SELECT COUNT(*) FROM warnings "
+            "WHERE timestamp > strftime('%s','now','-7 days')"
+        ).fetchone()[0]
         recent_raw     = db.execute(
             "SELECT ign, destination, authorized, timestamp "
             "FROM island_visits ORDER BY timestamp DESC LIMIT 10"
         ).fetchall()
+        top_islands_raw = db.execute(
+            "SELECT destination, COUNT(*) AS visit_count "
+            "FROM island_visits "
+            "GROUP BY destination "
+            "ORDER BY visit_count DESC LIMIT 5"
+        ).fetchall()
+        top_travelers_raw = db.execute(
+            "SELECT ign, COUNT(*) AS visit_count "
+            "FROM island_visits "
+            "GROUP BY ign "
+            "ORDER BY visit_count DESC LIMIT 5"
+        ).fetchall()
+        trend_raw = db.execute(
+            "SELECT DATE(timestamp, 'unixepoch', '+8 hours') AS day, COUNT(*) AS count "
+            "FROM island_visits "
+            "WHERE timestamp > strftime('%s','now','-7 days') "
+            "GROUP BY day ORDER BY day"
+        ).fetchall()
     except sqlite3.Error:
-        total_visits = total_warnings = visits_today = visits_week = 0
+        total_visits = total_warnings = visits_today = visits_week = warnings_week = 0
         recent_raw = []
+        top_islands_raw = []
+        top_travelers_raw = []
+        trend_raw = []
     finally:
         db.close()
 
-    recent = [
+        recent = [
         {
             "ign":         r["ign"],
             "destination": r["destination"],
@@ -697,6 +722,21 @@ def index():
         }
         for r in recent_raw
     ]
+
+    top_islands  = [{"name": r["destination"], "count": r["visit_count"]} for r in top_islands_raw]
+    top_travelers = [{"ign": r["ign"], "count": r["visit_count"]} for r in top_travelers_raw]
+
+    # Build a complete 7-day trend (fill gaps with 0)
+    trend_map = {r["day"]: r["count"] for r in trend_raw}
+    today_dt  = datetime.now(timezone.utc)
+    trend_labels = []
+    trend_counts = []
+    for offset in range(6, -1, -1):
+        d = (today_dt - timedelta(days=offset)).strftime("%Y-%m-%d")
+        trend_labels.append(d[-5:])  # "MM-DD"
+        trend_counts.append(trend_map.get(d, 0))
+
+    warn_rate_7d = round(warnings_week / visits_week * 100, 1) if visits_week > 0 else 0
 
     db2 = get_db()
     try:
@@ -726,10 +766,16 @@ def index():
         total_warnings=total_warnings,
         visits_today=visits_today,
         visits_week=visits_week,
+        warnings_week=warnings_week,
+        warn_rate_7d=warn_rate_7d,
         recent=recent,
         island_count=island_count,
         status_map=status_map,
         online_count=online_count,
+        top_islands=top_islands,
+        top_travelers=top_travelers,
+        trend_labels=trend_labels,
+        trend_counts=trend_counts,
     )
 
 

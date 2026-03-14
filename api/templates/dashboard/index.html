@@ -3,6 +3,10 @@
 {% block title %}Overview — ChoBot Dashboard{% endblock %}
 {% block header %}Overview{% endblock %}
 
+{% block head %}
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts@3/dist/apexcharts.min.js"></script>
+{% endblock %}
+
 {% block content %}
 
 <!-- Stat cards -->
@@ -30,6 +34,33 @@
       <div class="stat-label"><i class="bi bi-exclamation-triangle-fill me-1"></i>Warnings</div>
       <div class="stat-value" style="color:var(--nook-yellow);">{{ total_warnings }}</div>
     </div>
+  </div>
+  <!-- New stat cards -->
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-label"><i class="bi bi-geo-alt-fill me-1"></i>Total Islands</div>
+      <div class="stat-value" style="color:var(--nook-green);">{{ island_count }}</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-label"><i class="bi bi-wifi me-1"></i>Bots Online</div>
+      <div class="stat-value" style="color:var(--nook-green);">{{ online_count }}</div>
+      <div class="x-small fw-bold mt-1" style="color:#aaa;">of {{ island_count }} total</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="stat-card">
+      <div class="stat-label"><i class="bi bi-shield-exclamation me-1"></i>Warn Rate (7d)</div>
+      <div class="stat-value" style="color:{% if warn_rate_7d >= 10 %}#e06c75{% elif warn_rate_7d >= 5 %}var(--nook-yellow){% else %}var(--nook-green){% endif %};">{{ warn_rate_7d }}%</div>
+      <div class="x-small fw-bold mt-1" style="color:#aaa;">{{ warnings_week }} warnings this week</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <a href="{{ url_for('dashboard.analytics') }}" class="stat-card text-decoration-none d-block">
+      <div class="stat-label"><i class="bi bi-bar-chart-fill me-1"></i>Analytics</div>
+      <div class="stat-value" style="color:#b07cdc;">View →</div>
+    </a>
   </div>
 </div>
 
@@ -84,13 +115,95 @@
   </div>
 </div>
 
-<!-- Second row: Analytics quick link -->
+<!-- 7-day Visit Trend Sparkline -->
+<div class="section-card mb-4">
+  <div class="section-card-header">
+    <span><i class="bi bi-graph-up-arrow me-2" style="color:var(--dal-blue);"></i>7-Day Visit Trend</span>
+    <a href="{{ url_for('dashboard.analytics') }}"
+       class="text-decoration-none fw-bold x-small"
+       style="color:var(--nook-green);">Full analytics →</a>
+  </div>
+  <div class="p-4" style="height:180px;position:relative;">
+    <div id="overviewTrendChart"></div>
+  </div>
+</div>
+
+<!-- Top Islands & Top Travelers (side-by-side) -->
 <div class="row g-4 mb-4">
-  <div class="col-6 col-lg-3">
-    <a href="{{ url_for('dashboard.analytics') }}" class="stat-card text-decoration-none d-block">
-      <div class="stat-label"><i class="bi bi-bar-chart-fill me-1"></i>Analytics</div>
-      <div class="stat-value" style="color:#b07cdc;">View →</div>
-    </a>
+  <!-- Top 5 Most Visited Islands -->
+  <div class="col-12 col-lg-6">
+    <div class="section-card h-100">
+      <div class="section-card-header">
+        <span><i class="bi bi-trophy-fill me-2" style="color:var(--nook-yellow);"></i>Top 5 Islands</span>
+        <a href="{{ url_for('dashboard.analytics') }}"
+           class="text-decoration-none fw-bold x-small"
+           style="color:var(--nook-green);">View all →</a>
+      </div>
+      {% if top_islands %}
+      <div class="p-3">
+        {% set max_count = top_islands[0].count if top_islands else 1 %}
+        {% for isl in top_islands %}
+        {% set pct = ((isl.count / max_count * 100) | int) if max_count > 0 else 0 %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-bold x-small" style="color:#444;">
+              {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
+              {{ isl.name }}
+            </span>
+            <span class="fw-black x-small" style="color:var(--nook-green);">{{ isl.count }} visits</span>
+          </div>
+          <div class="progress rounded-pill" style="height:7px;background:#e9f2e9;">
+            <div class="progress-bar rounded-pill"
+                 style="width:{{ pct }}%;background:var(--nook-green);"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="py-4 text-center" style="color:#ccc;font-weight:700;font-size:.9rem;">
+        <i class="bi bi-geo-alt fs-3 d-block mb-2" style="opacity:.3;"></i>
+        No visit data yet.
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Top 5 Travelers -->
+  <div class="col-12 col-lg-6">
+    <div class="section-card h-100">
+      <div class="section-card-header">
+        <span><i class="bi bi-person-fill-check me-2" style="color:var(--dal-blue);"></i>Top 5 Travelers</span>
+        <a href="{{ url_for('dashboard.analytics') }}"
+           class="text-decoration-none fw-bold x-small"
+           style="color:var(--nook-green);">View all →</a>
+      </div>
+      {% if top_travelers %}
+      <div class="p-3">
+        {% set max_t = top_travelers[0].count if top_travelers else 1 %}
+        {% for t in top_travelers %}
+        {% set pct = ((t.count / max_t * 100) | int) if max_t > 0 else 0 %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="fw-bold x-small" style="color:#444;">
+              {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% elif loop.index == 3 %}🥉{% else %}#{{ loop.index }}{% endif %}
+              {{ t.ign }}
+            </span>
+            <span class="fw-black x-small" style="color:var(--dal-blue);">{{ t.count }} flights</span>
+          </div>
+          <div class="progress rounded-pill" style="height:7px;background:#e3f2fd;">
+            <div class="progress-bar rounded-pill"
+                 style="width:{{ pct }}%;background:var(--dal-blue);"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="py-4 text-center" style="color:#ccc;font-weight:700;font-size:.9rem;">
+        <i class="bi bi-person fs-3 d-block mb-2" style="opacity:.3;"></i>
+        No traveler data yet.
+      </div>
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -184,6 +297,46 @@ document.addEventListener('DOMContentLoaded', function () {
         noRows:      "No flight data recorded yet."
       }
     });
+  }
+
+  /* 7-day sparkline using ApexCharts */
+  var trendEl = document.getElementById('overviewTrendChart');
+  if (trendEl && typeof ApexCharts !== 'undefined') {
+    new ApexCharts(trendEl, {
+      chart: {
+        type: 'area',
+        height: 150,
+        sparkline: { enabled: false },
+        toolbar: { show: false },
+        zoom: { enabled: false },
+        fontFamily: 'Quicksand, system-ui, sans-serif',
+        animations: { enabled: true, speed: 500 }
+      },
+      series: [{ name: 'Visits', data: {{ trend_counts | tojson }} }],
+      xaxis: {
+        categories: {{ trend_labels | tojson }},
+        labels: { style: { colors: '#aaa', fontSize: '10px', fontWeight: '700' } },
+        axisBorder: { show: false },
+        axisTicks: { show: false }
+      },
+      yaxis: {
+        labels: { style: { colors: '#aaa', fontSize: '10px', fontWeight: '700' } },
+        min: 0
+      },
+      fill: {
+        type: 'gradient',
+        gradient: { shadeIntensity: 1, opacityFrom: 0.35, opacityTo: 0.05, stops: [0, 100] }
+      },
+      colors: ['#28a745'],
+      stroke: { curve: 'smooth', width: 2.5 },
+      markers: { size: 4, colors: ['#28a745'], strokeWidth: 0 },
+      grid: { borderColor: '#f0f4ec', strokeDashArray: 3 },
+      tooltip: {
+        theme: 'light',
+        y: { formatter: function(v) { return v + ' visit' + (v !== 1 ? 's' : ''); } }
+      },
+      dataLabels: { enabled: false }
+    }).render();
   }
 });
 </script>

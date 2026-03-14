@@ -1953,10 +1953,13 @@ def api_analytics():
             ).fetchall()
         ]
         _VALID_COUNT_KEYS = {"warn_count", "kick_count", "ban_count", "note_count"}
+        _VALID_ACTIONS    = {"WARN", "KICK", "BAN", "NOTE", "ADMIT", "DISMISS"}
 
         def _top_by_action(action: str, count_key: str):
             if count_key not in _VALID_COUNT_KEYS:
                 raise ValueError(f"Invalid count_key: {count_key!r}")
+            if action not in _VALID_ACTIONS:
+                raise ValueError(f"Invalid action: {action!r}")
             if island_type_filter:
                 rows = db.execute(
                     f"SELECT w.user_id, COUNT(*) AS {count_key} "

@@ -459,8 +459,6 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
-  var _firstLoad = true;
-
   function pollOverview() {
     fetch('{{ url_for("dashboard.api_overview") }}')
       .then(function (r) { return r.ok ? r.json() : null; })
@@ -501,9 +499,7 @@
         }
 
         // Trend chart
-        if (_firstLoad) {
-          initTrendChart(d.trend_labels, d.trend_counts);
-        } else if (_trendChart) {
+        if (_trendChart) {
           _trendChart.updateSeries([{ name: 'Visits', data: d.trend_counts }]);
           _trendChart.updateOptions({ xaxis: { categories: d.trend_labels } });
         }
@@ -512,8 +508,6 @@
         renderTopIslands(d.top_islands);
         renderTopTravelers(d.top_travelers);
         renderRecentTable(d.recent);
-
-        _firstLoad = false;
       })
       .catch(function (err) { console.error('[overview poll]', err); });
   }
@@ -522,7 +516,6 @@
   document.addEventListener('DOMContentLoaded', function () {
     // Init chart with server-rendered data on first load
     initTrendChart({{ trend_labels | tojson }}, {{ trend_counts | tojson }});
-    _firstLoad = false;
 
     // Init DataTable on server-rendered table
     var el = document.getElementById('recentTable');

@@ -239,6 +239,12 @@
 
   var _refreshTimer = null;
 
+  function _startRefreshTimer() {
+    if (!_refreshTimer) {
+      _refreshTimer = setInterval(fetchLogs, 30000);
+    }
+  }
+
   function _esc(s) {
     if (s == null) return '';
     return String(s)
@@ -379,19 +385,18 @@
 
         _renderPagination(d.page, d.total_pages);
       })
-      .catch(function (err) { console.error('[logs fetch]', err); });
-  }
-
-  function _scheduleRefresh() {
-    if (_refreshTimer) clearInterval(_refreshTimer);
-    _refreshTimer = setInterval(fetchLogs, 30000);
+      .catch(function (err) {
+        console.error('[logs fetch]', err);
+        var infoEl = document.getElementById('logs-info');
+        if (infoEl) infoEl.innerHTML = '<span style="color:#e06c75;"><i class="bi bi-exclamation-circle me-1"></i>Failed to load data — retrying soon…</span>';
+      });
   }
 
   // ---- Public functions ----
   window.goToPage = function (p) {
     _state.page = p;
     fetchLogs();
-    _scheduleRefresh();
+    _startRefreshTimer();
   };
 
   window.switchTab = function (type) {
@@ -412,7 +417,7 @@
       fFilt.style.display = 'none'; wFilt.style.display = '';
     }
     fetchLogs();
-    _scheduleRefresh();
+    _startRefreshTimer();
   };
 
   window.applyFlightFilters = function () {
@@ -424,7 +429,7 @@
     _state.sortOrder        = document.getElementById('fl-sort-order').value;
     _state.page = 1;
     fetchLogs();
-    _scheduleRefresh();
+    _startRefreshTimer();
   };
 
   window.clearFlightFilters = function () {
@@ -438,7 +443,7 @@
     _state.sortBy = 'timestamp'; _state.sortOrder = 'desc';
     _state.page = 1;
     fetchLogs();
-    _scheduleRefresh();
+    _startRefreshTimer();
   };
 
   window.applyWarningFilters = function () {
@@ -447,7 +452,7 @@
     _state.page = 1;
     _updateActionPills();
     fetchLogs();
-    _scheduleRefresh();
+    _startRefreshTimer();
   };
 
   window.clearWarningFilters = function () {
@@ -457,7 +462,7 @@
     _state.page = 1;
     _updateActionPills();
     fetchLogs();
-    _scheduleRefresh();
+    _startRefreshTimer();
   };
 
   window.setWarnAction = function (at) {
@@ -466,7 +471,7 @@
     _state.page = 1;
     _updateActionPills();
     fetchLogs();
-    _scheduleRefresh();
+    _startRefreshTimer();
   };
 
   function _updateActionPills() {
@@ -494,7 +499,7 @@
       });
     }
     // Start auto-refresh
-    _scheduleRefresh();
+    _startRefreshTimer();
   });
 })();
 </script>

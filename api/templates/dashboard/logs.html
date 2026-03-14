@@ -137,7 +137,7 @@
 <!-- Results info -->
 <div class="d-flex align-items-center justify-content-between mb-3">
   <span class="x-small fw-bold" style="color:#aaa;">
-    Showing {{ entries|length }} of {{ total }} entries
+    Showing {{ entries|length }} of {{ total | intcomma }} entries
     {% if log_type == 'flights' and island_filter %}&nbsp;· island: <strong>{{ island_filter }}</strong>{% endif %}
     {% if log_type == 'flights' and category_filter %}&nbsp;· tier: <strong>{{ category_filter }}</strong>{% endif %}
     {% if ign_filter %}&nbsp;· ign: <strong>{{ ign_filter }}</strong>{% endif %}

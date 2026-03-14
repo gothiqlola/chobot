@@ -45,6 +45,15 @@ dashboard = Blueprint(
     static_url_path="/static",
 )
 
+
+@dashboard.app_template_filter("intcomma")
+def _intcomma(value):
+    """Format a number with thousands comma separators (e.g. 2000 → 2,000)."""
+    try:
+        return f"{int(value):,}"
+    except (TypeError, ValueError):
+        return value
+
 # Absolute path to the shared SQLite database
 _DB_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),

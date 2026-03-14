@@ -380,7 +380,10 @@ class AdmitUserSelect(discord.ui.UserSelect):
 
     async def callback(self, interaction: discord.Interaction):
         self.parent_view.selected_member = self.values[0] if self.values else None
-        await interaction.response.edit_message(content=self.parent_view._build_content())
+        try:
+            await interaction.response.edit_message(content=self.parent_view._build_content())
+        except discord.NotFound:
+            pass
 
 
 class AdmitConfirmView(discord.ui.View):
@@ -513,7 +516,10 @@ class NoteUserSelect(discord.ui.UserSelect):
         content = "<:Cho_Notes:1474311464688029817> **Add Note:**\nOptionally link a Discord user, then click **Write Note...**"
         if self.parent_view.selected_member:
             content += f"\n👤 Linked to: {self.parent_view.selected_member.mention}"
-        await interaction.response.edit_message(content=content)
+        try:
+            await interaction.response.edit_message(content=content)
+        except discord.NotFound:
+            pass
 
 
 class NoteBuilderView(discord.ui.View):

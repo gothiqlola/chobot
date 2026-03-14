@@ -166,6 +166,7 @@
             <th>IGN</th>
             <th>Origin</th>
             <th>Destination</th>
+            <th>Linked User</th>
             <th>Status</th>
             <th>Time</th>
           {% endif %}
@@ -207,6 +208,13 @@
             <td class="fw-bold" style="color:#444;">{{ entry.ign }}</td>
             <td style="color:#888;">{{ entry.origin_island or "—" }}</td>
             <td>{{ entry.destination }}</td>
+            <td style="color:#7c6fcd;">
+              {% if entry.user_name %}
+                <i class="bi bi-discord me-1" style="opacity:.7;"></i>{{ entry.user_name }}
+              {% else %}
+                <span style="color:#ccc;">—</span>
+              {% endif %}
+            </td>
             <td>
               {% if entry.authorized %}
                 <span class="badge badge-auth rounded-pill">✔ Auth</span>

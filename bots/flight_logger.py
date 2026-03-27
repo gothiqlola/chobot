@@ -568,11 +568,11 @@ class TravelerActionView(discord.ui.View):
         return None
 
     def _get_visit_id_from_embed(self, embed: discord.Embed) -> int | None:
-        """Extracts the visit ID from the '🆔 Visit ID' field in the alert embed."""
+        """Extracts the visit ID from the 'Visit ID' field in the alert embed."""
         if not embed or not embed.fields:
             return None
         for field in embed.fields:
-            if field.name == "🆔 Visit ID":
+            if field.name == "Visit ID":
                 match = re.search(r"#(\d+)", field.value)
                 if match:
                     return int(match.group(1))
@@ -593,11 +593,11 @@ class TravelerActionView(discord.ui.View):
             # Remove investigation fields and update Status field
             fields_to_keep = []
             for f in embed.fields:
-                if "🔍 Investigating" in f.name:
+                if "Investigating" in f.name:
                     continue
-                if f.name == "📌 Status":
+                if f.name == "Status":
                     # Replace Status field with resolved status
-                    fields_to_keep.append(("📌 Status", f"🟢 **{status_label}**", True))
+                    fields_to_keep.append(("Status", f"<:Cho_Check:1456715827213504593> **{status_label}**", True))
                 else:
                     fields_to_keep.append((f.name, f.value, f.inline))
 
@@ -658,7 +658,7 @@ class TravelerActionView(discord.ui.View):
             # Update Status field if it exists
             updated_fields = []
             for f in embed.fields:
-                if f.name == "📌 Status":
+                if f.name == "Status":
                     updated_fields.append((f.name, "<:Cho_Investigate:1474310726381338666> **INVESTIGATING**", f.inline))
                 else:
                     updated_fields.append((f.name, f.value, f.inline))
@@ -1200,20 +1200,20 @@ class FlightLoggerCog(commands.Cog):
             isl_clean = clean_text(island_raw)
             self.last_processed = discord.utils.utcnow()
             asyncio.create_task(
-                self._process_flight_log(message.guild, ign_raw, island_raw, dest_raw, ign_clean, isl_clean)
+                self._process_flight_log(message.guild, ign_raw, island_raw, dest_raw, ign_clean, isl_clean, message.jump_url, message.content)
             )
 
-    async def _process_flight_log(self, guild, ign_raw, island_raw, dest_raw, ign_clean, isl_clean):
+    async def _process_flight_log(self, guild, ign_raw, island_raw, dest_raw, ign_clean, isl_clean, message_url=None, message_content=None):
         """Background task: look up members then run the full log pipeline."""
         try:
             found = await asyncio.to_thread(
                 self.find_matching_members, guild, ign_clean, isl_clean
             )
-            await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw, island_type='sub')
+            await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw, island_type='sub', message_url=message_url, message_content=message_content)
         except Exception as e:
             logger.error(f"[FLIGHT] Pipeline error for {ign_raw}: {e}")
 
-    async def log_result(self, found_members, status, ign, island, destination, timestamp=None, island_type: str = 'sub'):
+    async def log_result(self, found_members, status, ign, island, destination, timestamp=None, island_type: str = 'sub', message_url=None, message_content=None):
         output_channel = self.bot.get_channel(Config.FLIGHT_LOG_CHANNEL_ID)
         if not output_channel: return
 
@@ -1234,23 +1234,35 @@ class FlightLoggerCog(commands.Cog):
                 member_line = "\n".join(
                     f"{m.mention} ({m.display_name})" for m in found_members
                 )
+                destination_link = self.get_island_channel_link(destination)
+
+                desc_lines = []
+                if message_url:
+                    content_preview = message_content.strip() if message_content else "View original message"
+                    if len(content_preview) > 100:
+                        content_preview = content_preview[:97] + "..."
+                    desc_lines.append(f"[{content_preview}]({message_url})")
+                desc_lines.append(f"Member Linked: {member_line}")
+                desc_lines.append("\nLog details matched with a member.")
+
                 embed = discord.Embed(
-                    description=(
-                        f"### <:Cho_Check:1456715827213504593> Match Found\n"
-                        f"`{ign}` joining **{destination}** from **{island}**"
-                    ),
+                    title=f"<:Cho_Check:1456715827213504593> Verified Flight",
+                    description="\n".join(desc_lines),
                     color=COLOR_SUCCESS,
                     timestamp=embed_timestamp,
                 )
-                embed.add_field(name="Traveler IGN",   value=f"```yaml\n{ign}```",              inline=True)
-                embed.add_field(name="Origin Island",  value=f"```yaml\n{island.title()}```",    inline=True)
-                embed.add_field(name="Destination",    value=f"```yaml\n{destination.title()}```", inline=True)
-                embed.add_field(name="Matched Member", value=member_line,                         inline=False)
-                embed.add_field(name="IGN Match",      value="**YES**",                           inline=True)
-                embed.add_field(name="Island Match",   value="**YES**",                           inline=True)
+                embed.add_field(name="IGN",         value=f"```yaml\n{ign}```",           inline=True)
+                embed.add_field(name="Island Name", value=f"```yaml\n{island.title()}```", inline=True)
+                embed.add_field(name="Destination", value=destination_link,               inline=True)
                 embed.set_image(url=Config.FOOTER_LINE)
                 embed.set_footer(text="Chopaeng Camp™ • Match Log", icon_url=guild_icon)
-                await xlog_channel.send(embed=embed)
+
+                if message_url:
+                    view = discord.ui.View()
+                    view.add_item(discord.ui.Button(label="View Flight", url=message_url, style=discord.ButtonStyle.link))
+                    await xlog_channel.send(embed=embed, view=view)
+                else:
+                    await xlog_channel.send(embed=embed)
         else:
             destination_link = self.get_island_channel_link(destination)
             alert_ts = int(embed_timestamp.timestamp()) if hasattr(embed_timestamp, 'timestamp') else int(discord.utils.utcnow().timestamp())
@@ -1281,7 +1293,7 @@ class FlightLoggerCog(commands.Cog):
                         # Only reuse the message if the alert is still pending (not yet resolved)
                         if existing_msg.embeds:
                             status_field = next(
-                                (f for f in existing_msg.embeds[0].fields if f.name == "📌 Status"),
+                                (f for f in existing_msg.embeds[0].fields if f.name == "Status"),
                                 None
                             )
                             if status_field is None or "PENDING REVIEW" not in status_field.value:
@@ -1296,22 +1308,22 @@ class FlightLoggerCog(commands.Cog):
                     updated_fields = []
                     has_rejoin_field = False
                     for f in embed.fields:
-                        if f.name == "🔁 Re-join Attempts":
+                        if f.name == "Re-join Attempts":
                             has_rejoin_field = True
                             m = re.search(r"\*\*(\d+)\*\*", f.value)
                             if m:
                                 rejoin_count = int(m.group(1)) + 1
                         else:
                             updated_fields.append((f.name, f.value, f.inline))
-                    rejoin_field = ("🔁 Re-join Attempts", f"**{rejoin_count}** attempt(s)\nLast seen <t:{alert_ts}:R>", True)
+                    rejoin_field = ("Re-join Attempts", f"**{rejoin_count}** attempt(s)\nLast seen <t:{alert_ts}:R>", True)
                     if has_rejoin_field:
                         updated_fields.append(rejoin_field)
                     else:
-                        # Insert the re-join field after "🕐 Detected"
+                        # Insert the re-join field after "Detected"
                         new_fields = []
                         for name, value, inline in updated_fields:
                             new_fields.append((name, value, inline))
-                            if name == "🕐 Detected":
+                            if name == "Detected":
                                 new_fields.append(rejoin_field)
                         updated_fields = new_fields
                     embed.clear_fields()
@@ -1329,13 +1341,13 @@ class FlightLoggerCog(commands.Cog):
                         color=COLOR_ALERT,
                         timestamp=embed_timestamp
                     )
-                    embed.add_field(name="👤 Traveler (IGN)", value=f"```yaml\n{ign}```", inline=True)
-                    embed.add_field(name="🏝️ Origin Island", value=f"```yaml\n{island.title()}```", inline=True)
-                    embed.add_field(name="✈️ Destination", value=f"```yaml\n{destination.title()}```", inline=True)
-                    embed.add_field(name="🕐 Detected", value=f"<t:{alert_ts}:R>", inline=True)
-                    embed.add_field(name="📌 Status", value="🔴 **PENDING REVIEW**", inline=True)
+                    embed.add_field(name="Traveler (IGN)", value=f"```yaml\n{ign}```", inline=True)
+                    embed.add_field(name="Origin Island",  value=f"```yaml\n{island.title()}```", inline=True)
+                    embed.add_field(name="Destination",    value=f"```yaml\n{destination.title()}```", inline=True)
+                    embed.add_field(name="Detected",       value=f"<t:{alert_ts}:R>", inline=True)
+                    embed.add_field(name="Status",         value="<:Cho_Investigate:1474310726381338666> **PENDING REVIEW**", inline=True)
                     if visit_id is not None:
-                        embed.add_field(name="🆔 Visit ID", value=f"`#{visit_id}`", inline=True)
+                        embed.add_field(name="Visit ID", value=f"`#{visit_id}`", inline=True)
                     embed.set_image(url=Config.FOOTER_LINE)
                     guild      = self.bot.get_guild(Config.GUILD_ID)
                     guild_icon = guild.icon.url if guild and guild.icon else None
@@ -1389,7 +1401,7 @@ class FlightLoggerCog(commands.Cog):
                         found = await asyncio.to_thread(self.find_matching_members, message.guild, ign_clean, isl_clean)
 
                         # Trigger the log result
-                        await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw, timestamp=message.created_at)
+                        await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw, timestamp=message.created_at, message_url=message.jump_url, message_content=message.content)
                         logger.info(f"[RECOVER] Processed item #{processed_count} - {ign_raw}")
 
                         processed_count += 1
@@ -1545,7 +1557,7 @@ class FlightLoggerCog(commands.Cog):
                 )
                 
                 # Log the result (this simulates what on_message would do)
-                await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw)
+                await self.log_result(found, "JOINING", ign_raw, island_raw, dest_raw, message_url=test_msg.jump_url if test_msg else None, message_content=test_message_content)
                 
             # Step 3: Wait 3 seconds to allow moderators to see the test message
             # and verify the alert appears in the log channel

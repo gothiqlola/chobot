@@ -1136,7 +1136,7 @@ class FlightLoggerCog(commands.Cog):
         chunks = [c.strip() for c in display_name.split("|") if c.strip()]
         if not chunks: return [], []
         ign_opts    = self.split_options(chunks[0])
-        island_opts = self.split_options(" | ".join(chunks[1:])) if len(chunks) > 1 else []
+        island_opts = [opt for chunk in chunks[1:] for opt in self.split_options(chunk)]
         return ign_opts, island_opts
 
     def find_matching_members(self, guild, ign_log_clean, island_log_clean):

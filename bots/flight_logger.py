@@ -1301,6 +1301,9 @@ class FlightLoggerCog(commands.Cog):
                     except discord.NotFound:
                         existing_msg = None
 
+                xlog_channel = self.bot.get_channel(Config.XLOG_VERBOSE_CHANNEL_ID)
+                guild_icon = guild.icon.url if guild and guild.icon else None
+
                 if existing_msg:
                     # Update the existing alert with a re-join counter instead of spamming a new message
                     embed = existing_msg.embeds[0]
@@ -1331,6 +1334,26 @@ class FlightLoggerCog(commands.Cog):
                         embed.add_field(name=name, value=value, inline=inline)
                     await existing_msg.edit(embed=embed)
                     logger.info(f"[FLIGHT] Updated existing alert for {ign} (re-join attempt #{rejoin_count})")
+
+                    # Post re-join notification to xlog channel
+                    if xlog_channel:
+                        xlog_embed = discord.Embed(
+                            description=(
+                                f"### {Config.EMOJI_FAIL} Unverified Flight — Re-join Detected\n"
+                                f"An unregistered traveler re-joined **{destination_link}**."
+                            ),
+                            color=COLOR_INVESTIGATION,
+                            timestamp=embed_timestamp,
+                        )
+                        xlog_embed.add_field(name="IGN",          value=f"```yaml\n{ign}```",           inline=True)
+                        xlog_embed.add_field(name="Origin Island", value=f"```yaml\n{island.title()}```", inline=True)
+                        xlog_embed.add_field(name="Destination",   value=destination_link,               inline=True)
+                        xlog_embed.add_field(name="Re-join #",     value=f"**{rejoin_count}**",           inline=True)
+                        xlog_embed.set_image(url=Config.FOOTER_LINE)
+                        xlog_embed.set_footer(text="Chopaeng Camp™ • Flight Logger", icon_url=guild_icon)
+                        xlog_view = discord.ui.View()
+                        xlog_view.add_item(discord.ui.Button(label="View Alert", url=existing_msg.jump_url, style=discord.ButtonStyle.link))
+                        await xlog_channel.send(embed=xlog_embed, view=xlog_view)
                 else:
                     embed = discord.Embed(
                         description=(
@@ -1356,6 +1379,31 @@ class FlightLoggerCog(commands.Cog):
                     view = TravelerActionView(self.bot, ign, visit_id=visit_id)
                     sent_msg = await output_channel.send(embed=embed, view=view)
                     self._pending_alerts[ign_clean] = sent_msg.id
+
+                    # Post unknown traveler notification to xlog channel
+                    if xlog_channel:
+                        xlog_embed = discord.Embed(
+                            description=(
+                                f"### {Config.EMOJI_FAIL} Unverified Flight Detected\n"
+                                f"An unregistered traveler was detected attempting to join **{destination_link}**.\n"
+                                f"No matching member found."
+                            ),
+                            color=COLOR_ALERT,
+                            timestamp=embed_timestamp,
+                        )
+                        xlog_embed.add_field(name="IGN",          value=f"```yaml\n{ign}```",           inline=True)
+                        xlog_embed.add_field(name="Origin Island", value=f"```yaml\n{island.title()}```", inline=True)
+                        xlog_embed.add_field(name="Destination",   value=destination_link,               inline=True)
+                        xlog_embed.add_field(name="Detected",      value=f"<t:{alert_ts}:R>",            inline=True)
+                        if visit_id is not None:
+                            xlog_embed.add_field(name="Visit ID",  value=f"`#{visit_id}`",               inline=True)
+                        xlog_embed.set_image(url=Config.FOOTER_LINE)
+                        xlog_embed.set_footer(text="Chopaeng Camp™ • Flight Logger", icon_url=guild_icon)
+                        xlog_view = discord.ui.View()
+                        if message_url:
+                            xlog_view.add_item(discord.ui.Button(label="View Flight", url=message_url, style=discord.ButtonStyle.link))
+                        xlog_view.add_item(discord.ui.Button(label="View Alert", url=sent_msg.jump_url, style=discord.ButtonStyle.link))
+                        await xlog_channel.send(embed=xlog_embed, view=xlog_view)
             finally:
                 self._creating_alerts.discard(ign_clean)
 

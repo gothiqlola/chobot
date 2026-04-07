@@ -1156,11 +1156,9 @@ class FlightLoggerCog(commands.Cog):
         found_members = []
         for member in guild.members:
             ign_opts, island_opts = self.parse_member_nick(member.display_name)
-            if not ign_opts and not island_opts: continue
-            
-            ign_match = ign_log_clean in ign_opts
-            island_match = island_log_clean in island_opts if island_opts else True
-            if ign_match and island_match:
+            if not ign_opts and not island_opts:
+                continue
+            if ign_log_clean in ign_opts:
                 found_members.append(member)
         return found_members
 
@@ -1169,7 +1167,7 @@ class FlightLoggerCog(commands.Cog):
 
         Returns a list of dicts:
             {member, ign_opts, island_opts, ign_match, island_match, full_match}
-        Sorted: full matches first, then partial, then no match.
+        Sorted: IGN matches first, then no match.
         """
         candidates = []
         for member in guild.members:
@@ -1178,7 +1176,7 @@ class FlightLoggerCog(commands.Cog):
                 continue
             ign_match    = ign_log_clean in ign_opts
             island_match = island_log_clean in island_opts if island_opts else True
-            full_match   = ign_match and island_match
+            full_match   = ign_match
             candidates.append({
                 "member":       member,
                 "ign_opts":     ign_opts,

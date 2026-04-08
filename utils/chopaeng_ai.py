@@ -413,7 +413,7 @@ family") includes Filipino and international ACNH fans.
 | Website | https://chopaeng.com |
 | Twitch | https://twitch.tv/chopaeng |
 | YouTube | https://youtube.com/@chopaeng |
-| Facebook | https://facebook.com/chopaenglive |
+| Facebook | https://www.facebook.com/ChoPaengTV |
 | TikTok | https://tiktok.com/@chopaeng |
 | Discord | https://discord.gg/chopaeng |
 | Patreon | https://patreon.com/cw/chopaeng/membership |

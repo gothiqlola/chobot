@@ -763,6 +763,34 @@ class TravelerActionView(discord.ui.View):
             ephemeral=True,
         )
 
+class FlagConfirmView(discord.ui.View):
+    """Confirmation dialog for flagging a verified flight."""
+
+    def __init__(self, parent_view: "VerifiedFlightFlagView", ign: str, original_message: discord.Message):
+        super().__init__(timeout=300)
+        self.parent_view = parent_view
+        self.ign = ign
+        self.original_message = original_message
+
+    @discord.ui.button(label="Yes, Flag", style=discord.ButtonStyle.danger, emoji="🚩", row=0)
+    async def confirm_flag(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Proceed with flagging."""
+        try:
+            await self.parent_view._execute_flag(interaction, self.original_message)
+            await interaction.response.edit_message(content="🚩 Flight flagged for review.", view=None)
+        except Exception as e:
+            logger.error(f"[FLAG] Error in confirm_flag: {e}", exc_info=True)
+            await interaction.response.send_message(f"Error flagging flight: {e}", ephemeral=True)
+        finally:
+            self.stop()
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary, row=0)
+    async def cancel_flag(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancel flag action."""
+        await interaction.response.edit_message(content="Flag action cancelled.", view=None)
+        self.stop()
+
+
 class VerifiedFlightFlagView(discord.ui.View):
     """View attached to verified-flight xlog messages.
 
@@ -790,15 +818,9 @@ class VerifiedFlightFlagView(discord.ui.View):
                 return field.value
         return None
 
-    @discord.ui.button(label="Flag", style=discord.ButtonStyle.secondary, emoji="🚩", custom_id="fl_flag_verified", row=0)
-    async def flag_action(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """Escalate a verified flight to a manual alert."""
-        try:
-            await interaction.response.defer(ephemeral=True)
-        except discord.NotFound:
-            return
-
-        embed = interaction.message.embeds[0] if interaction.message.embeds else None
+    async def _execute_flag(self, interaction: discord.Interaction, xlog_message: discord.Message):
+        """Execute the flag action: create alert and update xlog message."""
+        embed = xlog_message.embeds[0] if xlog_message.embeds else None
         ign = self.ign or self._extract_field(embed, "IGN")
         island = self._extract_field(embed, "Island Name") if embed else None
         destination_display = self._extract_field(embed, "Destination") if embed else "Unknown"
@@ -877,14 +899,32 @@ class VerifiedFlightFlagView(discord.ui.View):
             if alert_msg:
                 new_view.add_item(discord.ui.Button(label="View Alert", url=alert_msg.jump_url, style=discord.ButtonStyle.link))
 
-            await interaction.message.edit(embed=embed, view=new_view)
+            await xlog_message.edit(embed=embed, view=new_view)
         except Exception as e:
             logger.error(f"[FLAG] Error updating xlog message after flag: {e}")
 
-        await interaction.followup.send(
-            "🚩 Flight flagged for review. An alert has been created in the flight log channel.",
-            ephemeral=True,
-        )
+    @discord.ui.button(label="Flag", style=discord.ButtonStyle.secondary, emoji="🚩", custom_id="fl_flag_verified", row=0)
+    async def flag_action(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Escalate a verified flight to a manual alert with confirmation."""
+        try:
+            await interaction.response.defer(ephemeral=True)
+        except discord.NotFound:
+            return
+
+        try:
+            embed = interaction.message.embeds[0] if interaction.message.embeds else None
+            ign = self.ign or (self._extract_field(embed, "IGN") if embed else None) or "Unknown"
+
+            # Show confirmation dialog
+            confirm_view = FlagConfirmView(self, ign, interaction.message)
+            await interaction.followup.send(
+                f"🚩 Are you sure you want to flag **{ign}** for review?",
+                view=confirm_view,
+                ephemeral=True
+            )
+        except Exception as e:
+            logger.error(f"[FLAG] Error in flag_action: {e}", exc_info=True)
+            await interaction.followup.send(f"Error: {e}", ephemeral=True)
 
 
 # Compiled once at module level; shared by all flight-monitoring cogs.
@@ -1431,9 +1471,11 @@ class FlightLoggerCog(commands.Cog):
                 embed.set_image(url=Config.FOOTER_LINE)
                 embed.set_footer(text="Chopaeng Camp™ • Match Log", icon_url=guild_icon)
 
-                flag_view = VerifiedFlightFlagView(bot=self.bot, ign=ign, visit_id=visit_id, message_url=message_url)
+                # Create view with flag button and optional view flight link
+                flag_view = VerifiedFlightFlagView(bot=self.bot)
                 if message_url:
-                    flag_view.add_item(discord.ui.Button(label="View Flight", url=message_url, style=discord.ButtonStyle.link, row=0))
+                    flag_view.add_item(discord.ui.Button(label="View Flight", url=message_url, style=discord.ButtonStyle.link))
+                
                 await xlog_channel.send(embed=embed, view=flag_view)
         else:
             destination_link = self.get_island_channel_link(destination)

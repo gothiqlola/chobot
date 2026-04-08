@@ -845,7 +845,7 @@ class VerifiedFlightFlagView(discord.ui.View):
             if visit_id is not None:
                 alert_embed.add_field(name="Visit ID", value=f"`#{visit_id}`", inline=True)
             alert_embed.set_image(url=Config.FOOTER_LINE)
-            alert_embed.set_footer(text="Chopaeng Camp™ • Flight Logger (Manual Flag)", icon_url=guild_icon)
+            alert_embed.set_footer(text="Chopaeng Camp™ • Flight Logger", icon_url=guild_icon)
 
             action_view = TravelerActionView(self.bot, ign, visit_id=visit_id)
             alert_msg = await output_channel.send(embed=alert_embed, view=action_view)
@@ -875,7 +875,7 @@ class VerifiedFlightFlagView(discord.ui.View):
             if msg_url:
                 new_view.add_item(discord.ui.Button(label="View Flight", url=msg_url, style=discord.ButtonStyle.link))
             if alert_msg:
-                new_view.add_item(discord.ui.Button(label="View Alert (manual)", url=alert_msg.jump_url, style=discord.ButtonStyle.link))
+                new_view.add_item(discord.ui.Button(label="View Alert", url=alert_msg.jump_url, style=discord.ButtonStyle.link))
 
             await interaction.message.edit(embed=embed, view=new_view)
         except Exception as e:

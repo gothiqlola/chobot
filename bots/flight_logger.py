@@ -815,7 +815,7 @@ class VerifiedFlightFlagView(discord.ui.View):
         # Recover message_url from embed description if not stored in self
         msg_url = self.message_url
         if not msg_url and embed and embed.description:
-            m = re.search(r'\[.*?\]\((https?://[^\)]+)\)', embed.description)
+            m = re.search(r'\[.*?\]\((https?://[^)]+)\)', embed.description)
             if m:
                 msg_url = m.group(1)
 
@@ -850,7 +850,7 @@ class VerifiedFlightFlagView(discord.ui.View):
             action_view = TravelerActionView(self.bot, ign, visit_id=visit_id)
             alert_msg = await output_channel.send(embed=alert_embed, view=action_view)
 
-        # Log the flag action in the warnings table
+        # Log the flag action in the warnings table (None user_id = no linked Discord member)
         cog = self.bot.get_cog("FlightLoggerCog") if self.bot else None
         if cog:
             await cog.add_warning(

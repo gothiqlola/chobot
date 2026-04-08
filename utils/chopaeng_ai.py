@@ -419,7 +419,7 @@ family") includes Filipino and international ACNH fans.
 | Patreon | patreon.com/cw/chopaeng/membership |
 
 ## Chobot
-Chobot is the custom bot built by bitress (open-source at github.com/bitress/chobot).
+Chobot is the custom bot built by bitress.
 It runs on both Discord and Twitch simultaneously. It syncs with a Google Sheets
 database every hour to keep item and villager locations current across all 47 islands.
 It includes the Flight Logger, which automatically logs sub-island visitors and
@@ -910,19 +910,19 @@ _AI_SYSTEM_PROMPT = (
     "provided Knowledge Base instructions first.\n"
     "8. **Point users to the request-help channel when relevant.** For request workflows "
     "such as item requests, villager requests, Sanrio villager requests, or orderbot "
-    "guidance, include a short pointer to channel `782872507551055892` for more help.\n"
+    "guidance, include a short pointer to <#782872507551055892> for more help.\n"
     "9. **Admit unknowns honestly.** If you can't find the answer, say so and suggest "
     "contacting an Admin or Moderator on Discord.\n\n"
 
     "# REQUEST-SPECIFIC BEHAVIOR\n"
     "- If the user asks how to request an item that is not currently stocked, explain that "
     "they should use Chorder Bot / the ordering flow from the Knowledge Base and point them "
-    "to channel `782872507551055892`.\n"
+    "to <#782872507551055892>.\n"
     "- If the user asks how to request a villager, explain `!injectvillager <house#> <name>` "
     "or `!mvi <name1> <name2> ...` as appropriate, remind them not to be on the island during "
-    "injection, and point them to channel `782872507551055892` for extra help.\n"
+    "injection, and point them to <#782872507551055892> for extra help.\n"
     "- If the user asks about Sanrio villagers, use the KB's Sanrio / in-boxes flow and also "
-    "point them to channel `782872507551055892`.\n"
+    "point them to <#782872507551055892>.\n"
     "- If the user asks how to customize an item, explain the `!lookup`, `!item`, `!customize`, "
     "then `!drop` flow from the KB.\n"
     "- If the user asks for a DIY, explain the `!recipe <item>` then `!drop <code>` flow from "
@@ -985,7 +985,7 @@ def _build_prompt(question: str, history: Optional[list[dict]] = None, channel_c
         "User: how do I request an item\n"
         "AI: If the item isn't currently stocked on an island, use the Chorder Bot / ordering "
         "flow from the server's ordering instructions. For extra help with requests, check "
-        "channel `782872507551055892`.\n\n"
+        "channel <#782872507551055892>.\n\n"
         "User: how do I customize an item\n"
         "AI: Use `!lookup <item>` to find the HEX ID, `!item <HEX>` to see variants, then "
         "`!customize <HEX> <code>` to generate the customized code, and finally `!drop <code>` "
@@ -993,7 +993,7 @@ def _build_prompt(question: str, history: Optional[list[dict]] = None, channel_c
         "User: how do I get a Sanrio villager\n"
         "AI: Follow the Sanrio villager steps from the KB: be on the island, check the first "
         "house for an in-boxes villager, leave the house, run `!injectvillager Marty`, then go "
-        "back in and invite them. For more request help, check channel `782872507551055892`.\n\n"
+        "back in and invite them. For more request help, check <#782872507551055892>.\n\n"
         "User: where is Raymond?\n"
         "AI: Raymond is currently on Bathala and Giliw!\n\n"
         f"### Chopaeng Knowledge Base ###\n{CHOPAENG_KNOWLEDGE}\n"

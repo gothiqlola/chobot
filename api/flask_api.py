@@ -523,6 +523,7 @@ def auth_callback():
         "nickname":  member_nickname,
         "avatar":    discord_avatar_url,
         "roles":     member_roles,
+        "is_admin":  is_admin,
         "is_mod":    _is_mod(member_roles) or is_admin,
     })
 
@@ -543,6 +544,7 @@ def auth_me():
         "nickname":   user.get("nickname", ""),
         "avatar":     user["avatar"],
         "roles":      user["roles"],
+        "is_admin":   user.get("is_admin", False),
         "is_mod":     user["is_mod"],
     })
 
@@ -600,6 +602,12 @@ def reveal_dodo(name):
 
     if island_cat == "member" and not effective_required_roles and not bool(user.get("is_mod")):
         return jsonify({"error": "Subscriber roles are not configured for this island"}), 403
+
+    # Member islands also require the island access gate role unless user is admin.
+    island_access_role = str(Config.ISLAND_ACCESS_ROLE) if Config.ISLAND_ACCESS_ROLE else ""
+    if island_cat == "member" and island_access_role and not bool(user.get("is_admin", False)):
+        if island_access_role not in set(user.get("roles", [])):
+            return jsonify({"error": "You need island access role to reveal this dodo code"}), 403
 
     if not _has_island_access(user.get("roles", []), effective_required_roles, bool(user.get("is_mod"))):
         return jsonify({"error": "You don't have the required subscription for this island"}), 403
@@ -907,6 +915,9 @@ def get_islands():
         ).fetchall()
         for row in rows:
             isl = row_to_island_dict(dict(row))
+            # Keep frontend gating aligned with reveal endpoint safety logic.
+            if (isl.get("cat") or "").strip().lower() == "member" and not (isl.get("required_roles") or []):
+                isl["required_roles"] = _configured_subscription_role_ids()
             if isl.get("name"):
                 db_map[isl["name"].upper()] = isl
         # Load Discord bot presence data

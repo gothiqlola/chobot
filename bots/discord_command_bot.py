@@ -490,7 +490,6 @@ class DiscordCommandCog(commands.Cog):
         self.sub_island_lookup = {}
         self.free_island_lookup = {}
 
-        self.auto_refresh_cache.start()
         # island_clean -> True (down) / False (up); None = not yet initialized
         self.island_down_states: dict[str, bool | None] = {}
         # island_clean -> discord.Message of the sticky "island is down" embed
@@ -611,7 +610,6 @@ class DiscordCommandCog(commands.Cog):
 
     def cog_unload(self):
         """Cleanup on unload"""
-        self.auto_refresh_cache.cancel()
         self.island_monitor_loop.cancel()
 
     def check_cooldown(self, user_id: str, cooldown_sec: int = 3) -> bool:
@@ -873,17 +871,6 @@ class DiscordCommandCog(commands.Cog):
         embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=user_avatar)
         embed.set_image(url=Config.FOOTER_LINE)
         return embed
-
-    @tasks.loop(hours=1)
-    async def auto_refresh_cache(self):
-        """Auto refresh island channel links (cache is refreshed by DataManager's own thread)"""
-        await self.fetch_islands()
-
-    @auto_refresh_cache.before_loop
-    async def before_refresh(self):
-        """Wait until ready before starting refresh loop"""
-        await self.bot.wait_until_ready()
-        await self.fetch_islands()
 
     @commands.hybrid_command(name="find", aliases=['locate', 'where', 'search'])
     @app_commands.describe(item="The name of the item or recipe to find")

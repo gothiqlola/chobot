@@ -139,22 +139,37 @@ def _fire_dodo_webhook(username: str, avatar_url: str, island_name: str, dodo_co
     url = Config.DODO_LOG_WEBHOOK_URL
     if not url:
         return
-    payload = json.dumps({
-        "embeds": [{
-            "description": f"**{username}** revealed a code at **{island_name}**",
-            "color": 0x57F287,
-            "footer": {"text": f"Dodo: {dodo_code}"},
-            "timestamp": datetime.utcnow().isoformat() + "Z",
-            "thumbnail": {"url": avatar_url} if avatar_url else {},
-        }]
-    }).encode()
+
+    embed = {
+        "description": f"**{username or 'Unknown User'}** revealed a code at **{island_name}**",
+        "color": 0x57F287,
+        "footer": {"text": f"Dodo: {dodo_code}"},
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+    }
+    # Discord rejects empty embed objects like "thumbnail": {}.
+    if avatar_url:
+        embed["thumbnail"] = {"url": avatar_url}
+
+    payload = json.dumps({"embeds": [embed]}).encode()
     try:
         req = urllib.request.Request(
             url, data=payload,
             headers={"Content-Type": "application/json", "User-Agent": _DISCORD_UA},
             method="POST",
         )
-        urllib.request.urlopen(req, timeout=5)
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            # Discord commonly returns 204 No Content for webhook success.
+            if resp.status not in (200, 204):
+                logger.warning("Dodo webhook unexpected HTTP status: %s", resp.status)
+            else:
+                logger.debug("Dodo webhook delivered for island=%s user=%s", island_name, username)
+    except urllib.error.HTTPError as exc:
+        body = ""
+        try:
+            body = exc.read().decode(errors="replace")
+        except Exception:
+            pass
+        logger.warning("Dodo webhook failed HTTP %s: %s", exc.code, body)
     except Exception as exc:
         logger.warning("Dodo webhook failed: %s", exc)
 

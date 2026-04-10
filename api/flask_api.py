@@ -15,6 +15,7 @@ import logging
 import sqlite3
 import threading
 import urllib.parse
+import urllib.error
 import urllib.request
 from datetime import datetime, timedelta
 

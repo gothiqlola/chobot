@@ -135,16 +135,33 @@ def _has_island_access(roles: list[str], required_roles: list[str], is_mod: bool
         return True
     return bool(set(required_roles) & set(roles))
 
-def _fire_dodo_webhook(username: str, avatar_url: str, island_name: str, dodo_code: str) -> None:
+def _fire_dodo_webhook(
+    username: str,
+    nickname: str,
+    user_id: str,
+    avatar_url: str,
+    island_name: str,
+    dodo_code: str,
+) -> None:
     """POST a Discord webhook message in the background."""
     url = Config.DODO_LOG_WEBHOOK_URL
     if not url:
         return
 
+    display_name = (nickname or "").strip() or (username or "").strip() or "Unknown User"
+    account_name = (username or "").strip() or "Unknown User"
+    nick_value = (nickname or "").strip() or "(none)"
+    user_id_value = (user_id or "").strip() or "(unknown)"
+
     embed = {
-        "description": f"**{username or 'Unknown User'}** revealed a code at **{island_name}**",
+        "description": f"**{display_name}** revealed a dodo code at **{island_name}**",
         "color": 0x57F287,
-        "footer": {"text": f"Dodo: {dodo_code}"},
+        "fields": [
+            {"name": "Guild Nickname", "value": nick_value, "inline": True},
+            {"name": "Discord Username", "value": account_name, "inline": True},
+            {"name": "Island", "value": island_name, "inline": True},
+        ],
+        "footer": {"text": "Chopaeng Dodo Reveal Log"},
         "timestamp": datetime.utcnow().isoformat() + "Z",
     }
     # Discord rejects empty embed objects like "thumbnail": {}.
@@ -444,6 +461,7 @@ def auth_callback():
 
     # Fetch guild member record (roles + permissions)
     member_roles: list[str] = []
+    member_nickname = ""
     member_perms = 0
     try:
         mem_req = urllib.request.Request(
@@ -453,6 +471,7 @@ def auth_callback():
         with urllib.request.urlopen(mem_req, timeout=10) as resp:
             member_data = json.loads(resp.read().decode())
         member_roles = [str(r) for r in member_data.get("roles", [])]
+        member_nickname = (member_data.get("nick") or "").strip()
         try:
             member_perms = int(member_data.get("permissions", "0") or 0)
         except (ValueError, TypeError):
@@ -474,7 +493,11 @@ def auth_callback():
         with urllib.request.urlopen(user_req, timeout=10) as resp:
             user_data = json.loads(resp.read().decode())
         discord_user_id  = str(user_data.get("id", ""))
-        discord_username = user_data.get("global_name") or user_data.get("username", "")
+        discord_username = (
+            member_nickname
+            or user_data.get("global_name")
+            or user_data.get("username", "")
+        )
         avatar_hash = user_data.get("avatar") or ""
         if discord_user_id and avatar_hash and re.fullmatch(r"(?:a_)?[0-9a-f]{32}", avatar_hash):
             discord_avatar_url = (
@@ -487,6 +510,7 @@ def auth_callback():
     token = _make_auth_token({
         "user_id":   discord_user_id,
         "username":  discord_username,
+        "nickname":  member_nickname,
         "avatar":    discord_avatar_url,
         "roles":     member_roles,
         "is_mod":    _is_mod(member_roles) or is_admin,
@@ -506,6 +530,7 @@ def auth_me():
         "logged_in":  True,
         "user_id":    user["user_id"],
         "username":   user["username"],
+        "nickname":   user.get("nickname", ""),
         "avatar":     user["avatar"],
         "roles":      user["roles"],
         "is_mod":     user["is_mod"],
@@ -580,7 +605,14 @@ def reveal_dodo(name):
     # Fire webhook in background thread so the response isn't delayed
     threading.Thread(
         target=_fire_dodo_webhook,
-        args=(user["username"], user["avatar"], target, dodo_code),
+        args=(
+            user["username"],
+            user.get("nickname", ""),
+            user.get("user_id", ""),
+            user["avatar"],
+            target,
+            dodo_code,
+        ),
         daemon=True,
     ).start()
 

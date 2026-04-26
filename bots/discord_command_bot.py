@@ -40,6 +40,7 @@ ISLAND_VILLAGERS_PATTERN = re.compile(r"The following villagers are on (.+?):", 
 ISLAND_DODO_SENT_PATTERN = re.compile(r".+?:\s*Sent you the dodo code via DM", re.IGNORECASE)
 ISLAND_DROP_PATTERN = re.compile(r"Item drop request will be executed momentarily", re.IGNORECASE)
 ISLAND_INJECT_QUEUED_PATTERN = re.compile(r"Villager inject request has been added to the queue", re.IGNORECASE)
+ISLAND_INJECT_MULTI_QUEUED_PATTERN = re.compile(r"Villager inject request for (\d+) villagers?", re.IGNORECASE)
 ISLAND_INJECT_COMPLETE_PATTERN = re.compile(r"(.+?) has been injected by the bot at Index (\d+)", re.IGNORECASE)
 VISITOR_LINE_PATTERN = re.compile(r'#\d+:\s*(.+)')
 DODO_UPDATE_NOTIFICATION_PATTERN = re.compile(r"\[\d{4}-\d{2}-\d{2}\s+\d{1,2}:\d{2}:\d{2}\s+(?:am|pm)\]\s+The Dodo code for .+ has updated, the new Dodo code is:", re.IGNORECASE)
@@ -1180,6 +1181,7 @@ class DiscordCommandCog(commands.Cog):
                 "`!villagers` - Check current villagers on this sub island\n"
                 "`!drop` - Request item drop on this sub island\n"
                 "`!injectvillager <name>` - Inject a villager onto this sub island\n"
+                "`!mvi <name> [names...]` - Inject multiple villagers onto this sub island\n"
                 "*Use these in a sub island channel. If the island is offline, you'll see an 'island is down' message.*"
             ),
             inline=False
@@ -1849,6 +1851,72 @@ class DiscordCommandCog(commands.Cog):
             logger.warning(f"[DISCORD] Timeout waiting for island bot !injectvillager response in {ctx.channel.name}")
             await ctx.reply(embed=self._create_island_down_embed(ctx))
 
+    @commands.hybrid_command(name="mvi", aliases=["multiinject"])
+    async def multi_inject_villager(self, ctx, *villager_names):
+        """Inject multiple villagers onto the sub island"""
+        if not villager_names:
+            await ctx.reply("Please provide at least one villager name.", ephemeral=True)
+            return
+
+        if not self._is_sub_island_channel(ctx.channel):
+            await ctx.reply("This command can only be used in a sub island channel.", ephemeral=True)
+            return
+
+        if self.check_cooldown(str(ctx.author.id)):
+            return
+
+        guild = self.bot.get_guild(Config.GUILD_ID)
+        island_bot = self._get_island_bot_for_channel(guild, ctx.channel) if guild else None
+
+        if not island_bot or island_bot.status not in (discord.Status.online, discord.Status.idle):
+            await ctx.reply(embed=self._create_island_down_embed(ctx))
+            return
+
+        # Check for the multi-queued message
+        def multi_inject_queued_check(msg):
+            return (
+                msg.author.id == island_bot.id
+                and msg.channel.id == ctx.channel.id
+                and ISLAND_INJECT_MULTI_QUEUED_PATTERN.search(msg.content)
+            )
+
+        # Then check for the completion message
+        def inject_complete_check(msg):
+            return (
+                msg.author.id == island_bot.id
+                and msg.channel.id == ctx.channel.id
+                and ISLAND_INJECT_COMPLETE_PATTERN.search(msg.content)
+            )
+
+        try:
+            # Wait for the queued confirmation
+            queued_msg = await self.bot.wait_for('message', check=multi_inject_queued_check, timeout=ISLAND_BOT_INTERCEPT_TIMEOUT)
+            
+            # Extract number of villagers from queued message
+            match = ISLAND_INJECT_MULTI_QUEUED_PATTERN.search(queued_msg.content)
+            num_villagers = int(match.group(1)) if match else len(villager_names)
+            
+            await queued_msg.delete()
+
+            # Wait for each villager's completion message
+            injected_villagers = []
+            for _ in range(num_villagers):
+                complete_msg = await self.bot.wait_for('message', check=inject_complete_check, timeout=ISLAND_BOT_INTERCEPT_TIMEOUT + 10)
+                
+                match = ISLAND_INJECT_COMPLETE_PATTERN.search(complete_msg.content)
+                if match:
+                    villager = match.group(1).strip()
+                    index = match.group(2)
+                    injected_villagers.append((villager, index))
+                
+                await complete_msg.delete()
+
+            await ctx.reply(embed=self._build_multi_inject_villager_embed(ctx, injected_villagers))
+            logger.info(f"[DISCORD] Intercepted and redesigned !mvi response for {ctx.channel.name}")
+        except asyncio.TimeoutError:
+            logger.warning(f"[DISCORD] Timeout waiting for island bot !mvi response in {ctx.channel.name}")
+            await ctx.reply(embed=self._create_island_down_embed(ctx))
+
     def _get_island_bot_for_channel(self, guild: discord.Guild, channel: discord.TextChannel):
         """Return the island bot member for the given channel, or None if not found."""
         island_bot_role = guild.get_role(Config.ISLAND_BOT_ROLE_ID) if Config.ISLAND_BOT_ROLE_ID else None
@@ -1981,6 +2049,28 @@ class DiscordCommandCog(commands.Cog):
         embed.add_field(
             name="Plot Index",
             value=f"`{index}`",
+            inline=False
+        )
+        pfp_url = ctx.author.avatar.url if ctx.author.avatar else Config.DEFAULT_PFP
+        embed.set_footer(text=f"Requested by {ctx.author.display_name}", icon_url=pfp_url)
+        embed.set_image(url=Config.FOOTER_LINE)
+        return embed
+
+    def _build_multi_inject_villager_embed(self, ctx, injected_villagers: list) -> discord.Embed:
+        """Build a nicely formatted embed for multiple villager injections."""
+        villager_display = []
+        for villager, index in injected_villagers:
+            villager_display.append(f"`#{index}` 🏠 **{villager}**")
+
+        embed = discord.Embed(
+            title="✨ Villagers Injected",
+            description=f"**{len(injected_villagers)}** villagers have been injected onto the island!",
+            color=discord.Color.purple(),
+            timestamp=discord.utils.utcnow()
+        )
+        embed.add_field(
+            name="Villagers",
+            value="\n".join(villager_display) if villager_display else "*No villagers injected.*",
             inline=False
         )
         pfp_url = ctx.author.avatar.url if ctx.author.avatar else Config.DEFAULT_PFP

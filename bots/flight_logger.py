@@ -1491,7 +1491,7 @@ class FlightLoggerCog(commands.Cog):
                 # Design: Use a block with emoji and clear separation
                 if has_access:
                     if highlight_present:
-                        sub_lines = [f"{name} {mention}" for name, mention in highlight_present]
+                        sub_lines = [f"{mention}" for mention in highlight_present]
                         desc_lines.append(
                             f"<a:heartside:784055539881214002> **Subscription(s):**\n> " + "\n> ".join(sub_lines)
                         )
@@ -1500,7 +1500,7 @@ class FlightLoggerCog(commands.Cog):
                             f"<a:CampWarning:1172346431542140961> **Subscription(s):**\n> None detected."
                         )
                     desc_lines.append(
-                        f"<a:starpink:784055540321091584> **Island Access:** <@&{Config.ISLAND_ACCESS_ROLE}>"
+                        f"<a:starpink:784055540321091584> **Has Island Access?** Yes"
                     )
                 else:
                     desc_lines.append(
